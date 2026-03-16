@@ -1,0 +1,239 @@
+name: RxPredict CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/rx-predict
+
+jobs:
+  # --- Lint & Type Check ---
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run ruff linter
+        run: uv run ruff check src/ tests/
+
+      - name: Run ruff formatter check
+        run: uv run ruff format --check src/ tests/
+
+      - name: Run mypy type check
+        run: uv run mypy src/rx_predict/ --ignore-missing-imports
+
+  # --- Unit Tests ---
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run unit tests
+        run: uv run pytest tests/ -v --cov=rx_predict --cov-report=xml -m "not slow and not benchmark"
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  # --- Integration Tests ---
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run integration tests
+        env:
+          REDIS_URL: redis://localhost:6379/0
+        run: uv run pytest tests/ -v -m "not benchmark" --tb=short
+
+  # --- Performance Benchmark ---
+  benchmark:
+    name: Performance Benchmark
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run latency benchmark
+        run: uv run pytest tests/test_performance.py -v -m benchmark --tb=short
+
+      - name: Run comprehensive benchmark
+        run: uv run python benchmarks/latency_benchmark.py --iterations 500 --fail-threshold 100
+
+  # --- Build Docker Image ---
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [integration-tests, benchmark]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # --- Deploy to Staging ---
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to staging
+        run: |
+          echo "Deploying to staging environment..."
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          # In production, this would use kubectl, helm, or similar:
+          # kubectl set image deployment/rxpredict api=$IMAGE --namespace=staging
+          # kubectl rollout status deployment/rxpredict --namespace=staging --timeout=120s
+
+      - name: Run smoke tests on staging
+        run: |
+          echo "Running smoke tests against staging..."
+          # In production:
+          # curl -sf https://staging.rxpredict.example.com/health | jq '.status == "healthy"'
+          # curl -sf -X POST https://staging.rxpredict.example.com/predict -H 'Content-Type: application/json' -d @tests/fixtures/sample_request.json
+
+      - name: Verify latency SLA on staging
+        run: |
+          echo "Verifying p99 latency < 100ms on staging..."
+          # In production:
+          # for i in $(seq 1 50); do
+          #   curl -sf -w "%{time_total}\n" -o /dev/null -X POST https://staging.rxpredict.example.com/predict ...
+          # done | awk '{sum+=$1; if($1>max)max=$1} END {print "p99:", max*1000, "ms"; if(max>0.1) exit 1}'
+
+  # --- Deploy to Production ---
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      # Requires manual approval in GitHub environment settings
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production environment..."
+          echo "Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          # kubectl set image deployment/rxpredict api=$IMAGE --namespace=production
+          # kubectl rollout status deployment/rxpredict --namespace=production --timeout=180s
+
+      - name: Post-deploy health check
+        run: |
+          echo "Verifying production health..."
+          # curl -sf https://rxpredict.example.com/health | jq '.status'
+
+      - name: Post-deploy latency verification
+        run: |
+          echo "Verifying production latency SLA..."
+
+  # --- Rollback on Failure ---
+  rollback:
+    name: Rollback Production
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: failure()
+    environment: production
+    steps:
+      - name: Rollback to previous version
+        run: |
+          echo "ROLLING BACK production deployment..."
+          # kubectl rollout undo deployment/rxpredict --namespace=production
+          # kubectl rollout status deployment/rxpredict --namespace=production --timeout=120s
+
+      - name: Notify team
+        run: |
+          echo "Production rollback triggered for commit ${{ github.sha }}"
+          # Send Slack/PagerDuty notification

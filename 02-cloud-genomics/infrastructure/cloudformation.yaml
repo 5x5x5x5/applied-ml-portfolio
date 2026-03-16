@@ -1,0 +1,1373 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  CloudGenomics - Genomic Variant Classification Service
+  Highly Available, HIPAA-compliant infrastructure with ECS Fargate,
+  Multi-AZ RDS, S3, Step Functions, API Gateway + WAF, and DataDog monitoring.
+
+# ===========================================================================
+# Parameters
+# ===========================================================================
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [production, staging, development]
+    Description: Deployment environment
+
+  AppVersion:
+    Type: String
+    Default: "1.0.0"
+    Description: Application version tag for container image
+
+  ECRRepositoryUri:
+    Type: String
+    Description: ECR repository URI for the application container
+
+  DBMasterUsername:
+    Type: String
+    Default: genomics_admin
+    NoEcho: true
+    Description: RDS master username
+
+  DBMasterPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 16
+    Description: RDS master password (min 16 characters)
+
+  DataDogApiKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: DataDog API key for monitoring integration
+
+  AlertEmailAddress:
+    Type: String
+    Description: Email address for operational alerts
+
+  DesiredTaskCount:
+    Type: Number
+    Default: 2
+    MinValue: 2
+    Description: Desired number of ECS tasks (min 2 for HA)
+
+  CertificateArn:
+    Type: String
+    Default: ""
+    Description: ACM certificate ARN for HTTPS (API Gateway)
+
+# ===========================================================================
+# Conditions
+# ===========================================================================
+Conditions:
+  IsProduction: !Equals [!Ref Environment, production]
+  HasDataDogKey: !Not [!Equals [!Ref DataDogApiKey, ""]]
+  HasCertificate: !Not [!Equals [!Ref CertificateArn, ""]]
+
+# ===========================================================================
+# Resources
+# ===========================================================================
+Resources:
+
+  # =========================================================================
+  # KMS - Customer-Managed Encryption Keys
+  # =========================================================================
+  GenomicsKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: CloudGenomics customer-managed key for data encryption
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EnableRootAccount
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: AllowECSTaskRole
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt ECSTaskRole.Arn
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+              - kms:GenerateDataKeyWithoutPlaintext
+              - kms:DescribeKey
+            Resource: "*"
+          - Sid: AllowLambdaRole
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt LambdaExecutionRole.Arn
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Resource: "*"
+      EnableKeyRotation: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Service
+          Value: cloud-genomics
+
+  GenomicsKMSKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/cloudgenomics-${Environment}"
+      TargetKeyId: !Ref GenomicsKMSKey
+
+  # =========================================================================
+  # VPC - Multi-AZ Private Network
+  # =========================================================================
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "cloudgenomics-${Environment}-vpc"
+
+  # Private subnets across 3 AZs (no public subnets)
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "cloudgenomics-${Environment}-private-1"
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "cloudgenomics-${Environment}-private-2"
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub "cloudgenomics-${Environment}-private-3"
+
+  # Route table for private subnets (no internet gateway)
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "cloudgenomics-${Environment}-private-rt"
+
+  PrivateSubnet1RouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2RouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet3RouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      RouteTableId: !Ref PrivateRouteTable
+
+  # =========================================================================
+  # VPC Endpoints - AWS service access without internet egress
+  # =========================================================================
+  S3VPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRouteTable
+
+  ECRApiEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.api"
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+
+  ECRDkrEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.dkr"
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+
+  CloudWatchLogsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.logs"
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+
+  KMSEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.kms"
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+
+  SecretsManagerEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.secretsmanager"
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+
+  SNSEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sns"
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+
+  StepFunctionsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.states"
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+
+  # =========================================================================
+  # Security Groups
+  # =========================================================================
+  VPCEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for VPC Endpoints
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: !Sub "cloudgenomics-${Environment}-vpce-sg"
+
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for internal ALB
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 10.0.0.0/16
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: !Sub "cloudgenomics-${Environment}-alb-sg"
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ECS Fargate tasks
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "cloudgenomics-${Environment}-ecs-sg"
+
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RDS PostgreSQL
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "cloudgenomics-${Environment}-rds-sg"
+
+  # =========================================================================
+  # Internal Application Load Balancer
+  # =========================================================================
+  InternalALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "cg-${Environment}-alb"
+      Scheme: internal
+      Type: application
+      Subnets:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+        - !Ref PrivateSubnet3
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      LoadBalancerAttributes:
+        - Key: idle_timeout.timeout_seconds
+          Value: "60"
+        - Key: deletion_protection.enabled
+          Value: !If [IsProduction, "true", "false"]
+        - Key: access_logs.s3.enabled
+          Value: "false"
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  ALBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub "cg-${Environment}-tg"
+      Port: 8000
+      Protocol: HTTP
+      VpcId: !Ref VPC
+      TargetType: ip
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: "200"
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: "30"
+
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref InternalALB
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ALBTargetGroup
+
+  # =========================================================================
+  # API Gateway + WAF
+  # =========================================================================
+  APIGateway:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub "cloudgenomics-${Environment}-api"
+      ProtocolType: HTTP
+      Description: CloudGenomics API Gateway with WAF protection
+      CorsConfiguration:
+        AllowMethods:
+          - GET
+          - POST
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        MaxAge: 3600
+
+  APIGatewayVPCLink:
+    Type: AWS::ApiGatewayV2::VpcLink
+    Properties:
+      Name: !Sub "cg-${Environment}-vpclink"
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref ALBSecurityGroup
+
+  APIGatewayIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref APIGateway
+      IntegrationType: HTTP_PROXY
+      IntegrationUri: !GetAtt InternalALB.DNSName
+      IntegrationMethod: ANY
+      ConnectionType: VPC_LINK
+      ConnectionId: !Ref APIGatewayVPCLink
+      PayloadFormatVersion: "1.0"
+
+  APIGatewayRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref APIGateway
+      RouteKey: "$default"
+      Target: !Sub "integrations/${APIGatewayIntegration}"
+
+  APIGatewayStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref APIGateway
+      StageName: !Ref Environment
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 100
+        ThrottlingRateLimit: 50
+
+  # WAF Web ACL
+  WAFWebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub "cloudgenomics-${Environment}-waf"
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub "cloudgenomics-${Environment}-waf"
+        SampledRequestsEnabled: true
+      Rules:
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 1
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: CommonRuleSet
+            SampledRequestsEnabled: true
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 2
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: KnownBadInputs
+            SampledRequestsEnabled: true
+        - Name: RateLimitRule
+          Priority: 3
+          Action:
+            Block: {}
+          Statement:
+            RateBasedStatement:
+              Limit: 1000
+              AggregateKeyType: IP
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: RateLimit
+            SampledRequestsEnabled: true
+        - Name: AWSManagedRulesSQLiRuleSet
+          Priority: 4
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesSQLiRuleSet
+          VisibilityConfig:
+            CloudWatchMetricsEnabled: true
+            MetricName: SQLiRuleSet
+            SampledRequestsEnabled: true
+
+  # =========================================================================
+  # ECS Fargate - Application Cluster
+  # =========================================================================
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "cloudgenomics-${Environment}"
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      Configuration:
+        ExecuteCommandConfiguration:
+          KmsKeyId: !Ref GenomicsKMSKey
+          Logging: OVERRIDE
+          LogConfiguration:
+            CloudWatchEncryptionEnabled: true
+            CloudWatchLogGroupName: !Ref ECSLogGroup
+
+  ECSLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/ecs/cloudgenomics-${Environment}"
+      RetentionInDays: !If [IsProduction, 365, 30]
+      KmsKeyId: !GetAtt GenomicsKMSKey.Arn
+
+  ECSTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "cloudgenomics-${Environment}"
+      Cpu: "1024"
+      Memory: "2048"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt ECSExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSTaskRole.Arn
+      ContainerDefinitions:
+        - Name: classifier
+          Image: !Sub "${ECRRepositoryUri}:${AppVersion}"
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8000
+              Protocol: tcp
+          Environment:
+            - Name: APP_PORT
+              Value: "8000"
+            - Name: APP_WORKERS
+              Value: "4"
+            - Name: LOG_LEVEL
+              Value: info
+            - Name: AWS_DEFAULT_REGION
+              Value: !Ref "AWS::Region"
+            - Name: KMS_KEY_ID
+              Value: !Ref GenomicsKMSKey
+            - Name: VCF_BUCKET
+              Value: !Ref VCFBucket
+            - Name: RESULTS_BUCKET
+              Value: !Ref ResultsBucket
+            - Name: DD_SERVICE
+              Value: cloud-genomics
+            - Name: DD_ENV
+              Value: !Ref Environment
+            - Name: DD_VERSION
+              Value: !Ref AppVersion
+          Secrets:
+            - Name: DATABASE_URL
+              ValueFrom: !Ref DatabaseSecret
+            - Name: DD_API_KEY
+              ValueFrom: !If
+                - HasDataDogKey
+                - !Ref DataDogSecret
+                - !Ref "AWS::NoValue"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ECSLogGroup
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-stream-prefix: classifier
+          ReadonlyRootFilesystem: true
+          LinuxParameters:
+            Tmpfs:
+              - ContainerPath: /app/tmp
+                Size: 100
+          HealthCheck:
+            Command:
+              - CMD-SHELL
+              - "python -c \"import httpx; r = httpx.get('http://localhost:8000/health'); exit(0 if r.status_code == 200 else 1)\""
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 60
+
+  ECSService:
+    Type: AWS::ECS::Service
+    DependsOn: ALBListener
+    Properties:
+      Cluster: !Ref ECSCluster
+      ServiceName: !Sub "cloudgenomics-${Environment}-service"
+      TaskDefinition: !Ref ECSTaskDefinition
+      LaunchType: FARGATE
+      DesiredCount: !Ref DesiredTaskCount
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+            - !Ref PrivateSubnet3
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+          AssignPublicIp: DISABLED
+      LoadBalancers:
+        - ContainerName: classifier
+          ContainerPort: 8000
+          TargetGroupArn: !Ref ALBTargetGroup
+      HealthCheckGracePeriodSeconds: 120
+
+  # Auto-scaling
+  ECSAutoScalingTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 10
+      MinCapacity: !Ref DesiredTaskCount
+      ResourceId: !Sub "service/${ECSCluster}/${ECSService.Name}"
+      ScalableDimension: ecs:service:DesiredCount
+      ServiceNamespace: ecs
+      RoleARN: !GetAtt ECSAutoScalingRole.Arn
+
+  ECSCPUScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub "cg-${Environment}-cpu-scaling"
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ECSAutoScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageCPUUtilization
+        TargetValue: 70.0
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 60
+
+  ECSMemoryScalingPolicy:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: !Sub "cg-${Environment}-memory-scaling"
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ECSAutoScalingTarget
+      TargetTrackingScalingPolicyConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ECSServiceAverageMemoryUtilization
+        TargetValue: 80.0
+        ScaleInCooldown: 300
+        ScaleOutCooldown: 60
+
+  # =========================================================================
+  # RDS PostgreSQL Multi-AZ
+  # =========================================================================
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: CloudGenomics database subnet group
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+        - !Ref PrivateSubnet3
+
+  RDSInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub "cloudgenomics-${Environment}"
+      Engine: postgres
+      EngineVersion: "16.4"
+      DBInstanceClass: !If [IsProduction, db.r6g.large, db.t4g.medium]
+      AllocatedStorage: 100
+      MaxAllocatedStorage: 500
+      StorageType: gp3
+      StorageEncrypted: true
+      KmsKeyId: !GetAtt GenomicsKMSKey.Arn
+      MultiAZ: !If [IsProduction, true, false]
+      DBName: cloudgenomics
+      MasterUsername: !Ref DBMasterUsername
+      MasterUserPassword: !Ref DBMasterPassword
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      BackupRetentionPeriod: !If [IsProduction, 35, 7]
+      PreferredBackupWindow: "03:00-04:00"
+      PreferredMaintenanceWindow: "sun:04:00-sun:05:00"
+      DeletionProtection: !If [IsProduction, true, false]
+      EnablePerformanceInsights: true
+      PerformanceInsightsKMSKeyId: !GetAtt GenomicsKMSKey.Arn
+      PerformanceInsightsRetentionPeriod: !If [IsProduction, 731, 7]
+      MonitoringInterval: 60
+      MonitoringRoleArn: !GetAtt RDSMonitoringRole.Arn
+      CopyTagsToSnapshot: true
+      EnableCloudwatchLogsExports:
+        - postgresql
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  DatabaseSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "cloudgenomics/${Environment}/database-url"
+      Description: Database connection string
+      KmsKeyId: !Ref GenomicsKMSKey
+      SecretString: !Sub >-
+        postgresql://${DBMasterUsername}:${DBMasterPassword}@${RDSInstance.Endpoint.Address}:${RDSInstance.Endpoint.Port}/cloudgenomics
+
+  DataDogSecret:
+    Type: AWS::SecretsManager::Secret
+    Condition: HasDataDogKey
+    Properties:
+      Name: !Sub "cloudgenomics/${Environment}/datadog-api-key"
+      KmsKeyId: !Ref GenomicsKMSKey
+      SecretString: !Ref DataDogApiKey
+
+  # =========================================================================
+  # S3 Buckets - VCF files and results
+  # =========================================================================
+  VCFBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub "cloudgenomics-${Environment}-vcf-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "aws:kms"
+              KMSMasterKeyID: !GetAtt GenomicsKMSKey.Arn
+            BucketKeyEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: MoveToInfrequentAccess
+            Status: Enabled
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+              - StorageClass: GLACIER
+                TransitionInDays: 90
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 365
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: "s3:ObjectCreated:*"
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: ".vcf"
+            Function: !GetAtt VCFProcessingLambda.Arn
+          - Event: "s3:ObjectCreated:*"
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value: ".vcf.gz"
+            Function: !GetAtt VCFProcessingLambda.Arn
+      Tags:
+        - Key: DataClassification
+          Value: PHI
+        - Key: Environment
+          Value: !Ref Environment
+
+  ResultsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub "cloudgenomics-${Environment}-results-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "aws:kms"
+              KMSMasterKeyID: !GetAtt GenomicsKMSKey.Arn
+            BucketKeyEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: DataClassification
+          Value: PHI
+        - Key: Environment
+          Value: !Ref Environment
+
+  # =========================================================================
+  # Lambda - VCF Processing Trigger
+  # =========================================================================
+  VCFProcessingLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "cloudgenomics-${Environment}-vcf-trigger"
+      Runtime: python3.11
+      Handler: index.handler
+      Timeout: 300
+      MemorySize: 256
+      Role: !GetAtt LambdaExecutionRole.Arn
+      KmsKeyArn: !GetAtt GenomicsKMSKey.Arn
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref GenomicsStateMachine
+          ENVIRONMENT: !Ref Environment
+      Code:
+        ZipFile: |
+          import json
+          import os
+          import boto3
+          import logging
+
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          sfn_client = boto3.client('stepfunctions')
+
+          def handler(event, context):
+              """Trigger Step Functions workflow on VCF upload."""
+              for record in event.get('Records', []):
+                  bucket = record['s3']['bucket']['name']
+                  key = record['s3']['object']['key']
+                  size = record['s3']['object'].get('size', 0)
+
+                  logger.info(f"VCF upload detected: s3://{bucket}/{key} ({size} bytes)")
+
+                  input_data = {
+                      's3Bucket': bucket,
+                      's3Key': key,
+                      'fileSize': size,
+                      'uploadTime': record['eventTime'],
+                  }
+
+                  response = sfn_client.start_execution(
+                      stateMachineArn=os.environ['STATE_MACHINE_ARN'],
+                      input=json.dumps(input_data),
+                  )
+
+                  logger.info(f"Started execution: {response['executionArn']}")
+
+              return {'statusCode': 200}
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  VCFLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref VCFProcessingLambda
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !GetAtt VCFBucket.Arn
+
+  # =========================================================================
+  # Step Functions State Machine
+  # =========================================================================
+  GenomicsStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: !Sub "cloudgenomics-${Environment}-pipeline"
+      RoleArn: !GetAtt StepFunctionsRole.Arn
+      TracingConfiguration:
+        Enabled: true
+      LoggingConfiguration:
+        Level: ALL
+        IncludeExecutionData: false
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt StepFunctionsLogGroup.Arn
+      DefinitionString: !Sub |
+        {
+          "Comment": "CloudGenomics Variant Classification Pipeline",
+          "StartAt": "InitializeJob",
+          "States": {
+            "InitializeJob": {
+              "Type": "Pass",
+              "Parameters": {
+                "jobId.$": "$$.Execution.Id",
+                "startTime.$": "$$.Execution.StartTime",
+                "input.$": "$"
+              },
+              "ResultPath": "$.jobContext",
+              "Next": "ValidateVCF"
+            },
+            "ValidateVCF": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${VCFProcessingLambda.Arn}",
+                "Payload.$": "$"
+              },
+              "ResultPath": "$.validationResult",
+              "Next": "ClassifyVariants",
+              "Catch": [{
+                "ErrorEquals": ["States.ALL"],
+                "Next": "HandleFailure",
+                "ResultPath": "$.error"
+              }]
+            },
+            "ClassifyVariants": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::ecs:runTask.sync",
+              "Parameters": {
+                "LaunchType": "FARGATE",
+                "Cluster": "${ECSCluster}",
+                "TaskDefinition": "${ECSTaskDefinition}",
+                "NetworkConfiguration": {
+                  "AwsvpcConfiguration": {
+                    "Subnets": ["${PrivateSubnet1}", "${PrivateSubnet2}"],
+                    "SecurityGroups": ["${ECSSecurityGroup}"],
+                    "AssignPublicIp": "DISABLED"
+                  }
+                }
+              },
+              "ResultPath": "$.classificationResult",
+              "TimeoutSeconds": 3600,
+              "Next": "NotifyCompletion",
+              "Catch": [{
+                "ErrorEquals": ["States.ALL"],
+                "Next": "HandleFailure",
+                "ResultPath": "$.error"
+              }]
+            },
+            "NotifyCompletion": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "${AlertTopic}",
+                "Subject": "CloudGenomics - Classification Complete",
+                "Message.$": "States.JsonToString($)"
+              },
+              "End": true
+            },
+            "HandleFailure": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "${AlertTopic}",
+                "Subject": "CloudGenomics - Pipeline FAILED",
+                "Message.$": "States.JsonToString($)"
+              },
+              "End": true
+            }
+          }
+        }
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  StepFunctionsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/stepfunctions/cloudgenomics-${Environment}"
+      RetentionInDays: !If [IsProduction, 365, 30]
+
+  # =========================================================================
+  # SNS - Alerting
+  # =========================================================================
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "cloudgenomics-${Environment}-alerts"
+      KmsMasterKeyId: !Ref GenomicsKMSKey
+
+  AlertSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref AlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmailAddress
+
+  # =========================================================================
+  # CloudWatch Alarms
+  # =========================================================================
+  HighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "cg-${Environment}-high-cpu"
+      AlarmDescription: ECS service CPU utilization above 85%
+      MetricName: CPUUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 85
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref ECSCluster
+        - Name: ServiceName
+          Value: !GetAtt ECSService.Name
+      AlarmActions:
+        - !Ref AlertTopic
+
+  HighMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "cg-${Environment}-high-memory"
+      AlarmDescription: ECS service memory utilization above 90%
+      MetricName: MemoryUtilization
+      Namespace: AWS/ECS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 90
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref ECSCluster
+        - Name: ServiceName
+          Value: !GetAtt ECSService.Name
+      AlarmActions:
+        - !Ref AlertTopic
+
+  UnhealthyTargetsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "cg-${Environment}-unhealthy-targets"
+      AlarmDescription: ALB has unhealthy targets
+      MetricName: UnHealthyHostCount
+      Namespace: AWS/ApplicationELB
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: TargetGroup
+          Value: !GetAtt ALBTargetGroup.TargetGroupFullName
+        - Name: LoadBalancer
+          Value: !GetAtt InternalALB.LoadBalancerFullName
+      AlarmActions:
+        - !Ref AlertTopic
+
+  RDSHighCPUAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "cg-${Environment}-rds-high-cpu"
+      AlarmDescription: RDS CPU utilization above 80%
+      MetricName: CPUUtilization
+      Namespace: AWS/RDS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSInstance
+      AlarmActions:
+        - !Ref AlertTopic
+
+  RDSLowStorageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "cg-${Environment}-rds-low-storage"
+      AlarmDescription: RDS free storage below 10 GB
+      MetricName: FreeStorageSpace
+      Namespace: AWS/RDS
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10737418240
+      ComparisonOperator: LessThanThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSInstance
+      AlarmActions:
+        - !Ref AlertTopic
+
+  # =========================================================================
+  # IAM Roles - Strict Least Privilege
+  # =========================================================================
+  ECSExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "cg-${Environment}-ecs-execution"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: SecretsAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref DatabaseSecret
+                  - !If
+                    - HasDataDogKey
+                    - !Ref DataDogSecret
+                    - !Ref "AWS::NoValue"
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                Resource:
+                  - !GetAtt GenomicsKMSKey.Arn
+
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "cg-${Environment}-ecs-task"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadVCFBucket
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt VCFBucket.Arn
+                  - !Sub "${VCFBucket.Arn}/*"
+              - Sid: WriteResultsBucket
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                Resource:
+                  - !GetAtt ResultsBucket.Arn
+                  - !Sub "${ResultsBucket.Arn}/*"
+        - PolicyName: KMSAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                  - kms:DescribeKey
+                Resource:
+                  - !GetAtt GenomicsKMSKey.Arn
+        - PolicyName: SNSPublish
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref AlertTopic
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "cg-${Environment}-lambda-execution"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: LambdaPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                Resource:
+                  - !Sub "${VCFBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - states:StartExecution
+                Resource:
+                  - !Ref GenomicsStateMachine
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource:
+                  - !GetAtt GenomicsKMSKey.Arn
+
+  StepFunctionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "cg-${Environment}-stepfunctions"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: states.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StepFunctionsPermissions
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt VCFProcessingLambda.Arn
+              - Effect: Allow
+                Action:
+                  - ecs:RunTask
+                  - ecs:StopTask
+                  - ecs:DescribeTasks
+                Resource: "*"
+                Condition:
+                  ArnEquals:
+                    "ecs:cluster": !GetAtt ECSCluster.Arn
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource:
+                  - !GetAtt ECSExecutionRole.Arn
+                  - !GetAtt ECSTaskRole.Arn
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref AlertTopic
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogDelivery
+                  - logs:GetLogDelivery
+                  - logs:UpdateLogDelivery
+                  - logs:DeleteLogDelivery
+                  - logs:ListLogDeliveries
+                  - logs:PutResourcePolicy
+                  - logs:DescribeResourcePolicies
+                  - logs:DescribeLogGroups
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - events:PutTargets
+                  - events:PutRule
+                  - events:DescribeRule
+                Resource:
+                  - !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:rule/StepFunctions*"
+
+  ECSAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "cg-${Environment}-ecs-autoscaling"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: application-autoscaling.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceAutoscaleRole
+
+  RDSMonitoringRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "cg-${Environment}-rds-monitoring"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: monitoring.rds.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole
+
+# ===========================================================================
+# Outputs
+# ===========================================================================
+Outputs:
+  VPCId:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCId"
+
+  APIGatewayUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${APIGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}"
+
+  ECSClusterName:
+    Description: ECS cluster name
+    Value: !Ref ECSCluster
+
+  RDSEndpoint:
+    Description: RDS PostgreSQL endpoint
+    Value: !GetAtt RDSInstance.Endpoint.Address
+
+  VCFBucketName:
+    Description: S3 bucket for VCF files
+    Value: !Ref VCFBucket
+
+  ResultsBucketName:
+    Description: S3 bucket for classification results
+    Value: !Ref ResultsBucket
+
+  KMSKeyId:
+    Description: KMS key for data encryption
+    Value: !Ref GenomicsKMSKey
+
+  StateMachineArn:
+    Description: Step Functions state machine ARN
+    Value: !Ref GenomicsStateMachine
+
+  AlertTopicArn:
+    Description: SNS topic for alerts
+    Value: !Ref AlertTopic

@@ -1,0 +1,51 @@
+[project]
+name = "pharma-data-vault"
+version = "1.0.0"
+description = "Pharmaceutical Data Warehouse using Data Vault 2.0 methodology"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "PharmaDataVault Team" }]
+
+dependencies = [
+    "sqlalchemy>=2.0,<3.0",
+    "psycopg2-binary>=2.9,<3.0",
+    "pandas>=2.1,<3.0",
+    "great-expectations>=0.18,<1.0",
+    "pydantic>=2.5,<3.0",
+    "schedule>=1.2,<2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4,<9.0",
+    "pytest-cov>=4.1,<6.0",
+    "ruff>=0.3,<1.0",
+    "mypy>=1.8,<2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pharma_vault"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "TCH"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v --tb=short"

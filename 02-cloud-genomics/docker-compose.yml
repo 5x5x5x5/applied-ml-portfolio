@@ -1,0 +1,142 @@
+# ===========================================================================
+# CloudGenomics - Local Development Environment
+# Services: app, postgres, localstack (AWS services emulation)
+# ===========================================================================
+
+services:
+  # -------------------------------------------------------------------------
+  # Application service
+  # -------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: cloudgenomics-app
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_PORT=8000
+      - APP_WORKERS=2
+      - LOG_LEVEL=debug
+      - PYTHONPATH=/app/src
+      # Database
+      - DATABASE_URL=postgresql://genomics:genomics_dev_pass@postgres:5432/cloudgenomics
+      # AWS (LocalStack)
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      # KMS key (created by LocalStack init)
+      - KMS_KEY_ID=alias/cloudgenomics-key
+      # S3 buckets
+      - VCF_BUCKET=cloudgenomics-vcf-files
+      - RESULTS_BUCKET=cloudgenomics-results
+      # DataDog (local agent)
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_AGENT_PORT=8126
+      - DD_SERVICE=cloud-genomics
+      - DD_ENV=development
+      - DD_TRACE_ENABLED=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src:ro
+      - app-tmp:/app/tmp
+    networks:
+      - cloudgenomics-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:8000/health'); assert r.status_code == 200"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  # -------------------------------------------------------------------------
+  # PostgreSQL - Results storage
+  # -------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: cloudgenomics-postgres
+    environment:
+      - POSTGRES_DB=cloudgenomics
+      - POSTGRES_USER=genomics
+      - POSTGRES_PASSWORD=genomics_dev_pass
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infrastructure/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - cloudgenomics-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U genomics -d cloudgenomics"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+
+  # -------------------------------------------------------------------------
+  # LocalStack - AWS services emulation (S3, KMS, Step Functions, SNS)
+  # -------------------------------------------------------------------------
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: cloudgenomics-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,kms,stepfunctions,sns,lambda,iam
+      - DEFAULT_REGION=us-east-1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DEBUG=0
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./infrastructure/localstack-init.sh:/etc/localstack/init/ready.d/init.sh:ro
+    networks:
+      - cloudgenomics-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+# -------------------------------------------------------------------------
+# Volumes
+# -------------------------------------------------------------------------
+volumes:
+  postgres-data:
+    driver: local
+  localstack-data:
+    driver: local
+  app-tmp:
+    driver: local
+
+# -------------------------------------------------------------------------
+# Network
+# -------------------------------------------------------------------------
+networks:
+  cloudgenomics-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

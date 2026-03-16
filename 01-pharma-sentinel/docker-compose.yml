@@ -1,0 +1,108 @@
+# =============================================================================
+# PharmaSentinel - Local Development Environment
+# =============================================================================
+# Services:
+#   - app:        FastAPI application
+#   - localstack: AWS service emulation (S3, SQS)
+#   - redis:      Caching layer
+# =============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pharma-sentinel-app
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENVIRONMENT=local
+      - APP_DEBUG=true
+      - APP_LOG_LEVEL=DEBUG
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000
+      - APP_WORKERS=1
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=localstack
+      - AWS_SECRET_ACCESS_KEY=localstack
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_S3_INPUT_BUCKET=pharma-sentinel-input
+      - AWS_S3_OUTPUT_BUCKET=pharma-sentinel-output
+      - AWS_S3_MODEL_BUCKET=pharma-sentinel-models
+      - AWS_SQS_CRITICAL_QUEUE_URL=http://localstack:4566/000000000000/pharma-sentinel-critical
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DD_TRACE_ENABLED=false
+      - MODEL_ARTIFACT_PATH=/app/models/adverse_event_classifier.joblib
+    volumes:
+      - ./src:/app/src:ro
+      - model-artifacts:/app/models
+    depends_on:
+      localstack:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - pharma-net
+
+  localstack:
+    image: localstack/localstack:3.4
+    container_name: pharma-sentinel-localstack
+    ports:
+      - "4566:4566"
+      - "4510-4559:4510-4559"
+    environment:
+      - SERVICES=s3,sqs
+      - DEBUG=0
+      - DEFAULT_REGION=us-east-1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - localstack-data:/var/lib/localstack
+      - ./infrastructure/localstack-init.sh:/etc/localstack/init/ready.d/init.sh:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - pharma-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: pharma-sentinel-redis
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - pharma-net
+
+volumes:
+  localstack-data:
+    driver: local
+  redis-data:
+    driver: local
+  model-artifacts:
+    driver: local
+
+networks:
+  pharma-net:
+    driver: bridge

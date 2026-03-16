@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PharmaDataVault - Control-M Business Calendar Definition
+
+  PHARMA_BUSINESS_CALENDAR: Defines valid scheduling days for ETL jobs.
+  Excludes:
+    - US Federal holidays
+    - Company-specific shutdown days
+    - Planned database maintenance windows
+    - FDA submission blackout dates (year-end processing)
+
+  This calendar is used by all PHARMA_DAILY_ETL and PHARMA_WEEKLY_MART jobs.
+-->
+<DEFTABLE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <!-- ================================================================== -->
+  <!-- PHARMA_BUSINESS_CALENDAR                                           -->
+  <!-- Primary business calendar for pharmaceutical ETL operations        -->
+  <!-- ================================================================== -->
+  <CALENDAR DATACENTER="PHARMA_DC"
+            NAME="PHARMA_BUSINESS_CALENDAR"
+            TYPE="PERIODIC"
+            DESCRIPTION="PharmaDataVault business calendar - excludes holidays, maintenance, and FDA blackout dates">
+
+    <!-- Base schedule: all days -->
+    <DAYS_RELATION DAYS="ALL" AND_OR="OR"/>
+
+    <!-- ================================================================ -->
+    <!-- US Federal Holidays - 2025                                       -->
+    <!-- ================================================================ -->
+    <CONF_CAL YEAR="2025">
+      <!-- New Year's Day -->
+      <EXCEPTION DATE="20250101" DESCRIPTION="New Year's Day"/>
+      <!-- Martin Luther King Jr. Day -->
+      <EXCEPTION DATE="20250120" DESCRIPTION="MLK Day"/>
+      <!-- Presidents' Day -->
+      <EXCEPTION DATE="20250217" DESCRIPTION="Presidents Day"/>
+      <!-- Memorial Day -->
+      <EXCEPTION DATE="20250526" DESCRIPTION="Memorial Day"/>
+      <!-- Juneteenth -->
+      <EXCEPTION DATE="20250619" DESCRIPTION="Juneteenth"/>
+      <!-- Independence Day -->
+      <EXCEPTION DATE="20250704" DESCRIPTION="Independence Day"/>
+      <!-- Labor Day -->
+      <EXCEPTION DATE="20250901" DESCRIPTION="Labor Day"/>
+      <!-- Columbus Day -->
+      <EXCEPTION DATE="20251013" DESCRIPTION="Columbus Day"/>
+      <!-- Veterans Day -->
+      <EXCEPTION DATE="20251111" DESCRIPTION="Veterans Day"/>
+      <!-- Thanksgiving -->
+      <EXCEPTION DATE="20251127" DESCRIPTION="Thanksgiving"/>
+      <EXCEPTION DATE="20251128" DESCRIPTION="Day after Thanksgiving"/>
+      <!-- Christmas -->
+      <EXCEPTION DATE="20251224" DESCRIPTION="Christmas Eve"/>
+      <EXCEPTION DATE="20251225" DESCRIPTION="Christmas Day"/>
+      <EXCEPTION DATE="20251226" DESCRIPTION="Day after Christmas"/>
+      <EXCEPTION DATE="20251231" DESCRIPTION="New Year's Eve"/>
+
+      <!-- Company Shutdown (Dec 24 - Jan 2) -->
+      <EXCEPTION DATE="20251229" DESCRIPTION="Company Shutdown"/>
+      <EXCEPTION DATE="20251230" DESCRIPTION="Company Shutdown"/>
+
+      <!-- Planned Database Maintenance Windows -->
+      <EXCEPTION DATE="20250215" DESCRIPTION="DB Maintenance - Q1 patching"/>
+      <EXCEPTION DATE="20250517" DESCRIPTION="DB Maintenance - Q2 patching"/>
+      <EXCEPTION DATE="20250816" DESCRIPTION="DB Maintenance - Q3 patching"/>
+      <EXCEPTION DATE="20251115" DESCRIPTION="DB Maintenance - Q4 patching"/>
+    </CONF_CAL>
+
+    <!-- ================================================================ -->
+    <!-- US Federal Holidays - 2026                                       -->
+    <!-- ================================================================ -->
+    <CONF_CAL YEAR="2026">
+      <EXCEPTION DATE="20260101" DESCRIPTION="New Year's Day"/>
+      <EXCEPTION DATE="20260102" DESCRIPTION="Company Shutdown"/>
+      <EXCEPTION DATE="20260119" DESCRIPTION="MLK Day"/>
+      <EXCEPTION DATE="20260216" DESCRIPTION="Presidents Day"/>
+      <EXCEPTION DATE="20260525" DESCRIPTION="Memorial Day"/>
+      <EXCEPTION DATE="20260619" DESCRIPTION="Juneteenth"/>
+      <EXCEPTION DATE="20260703" DESCRIPTION="Independence Day (observed)"/>
+      <EXCEPTION DATE="20260907" DESCRIPTION="Labor Day"/>
+      <EXCEPTION DATE="20261012" DESCRIPTION="Columbus Day"/>
+      <EXCEPTION DATE="20261111" DESCRIPTION="Veterans Day"/>
+      <EXCEPTION DATE="20261126" DESCRIPTION="Thanksgiving"/>
+      <EXCEPTION DATE="20261127" DESCRIPTION="Day after Thanksgiving"/>
+      <EXCEPTION DATE="20261224" DESCRIPTION="Christmas Eve"/>
+      <EXCEPTION DATE="20261225" DESCRIPTION="Christmas Day"/>
+      <EXCEPTION DATE="20261228" DESCRIPTION="Company Shutdown"/>
+      <EXCEPTION DATE="20261229" DESCRIPTION="Company Shutdown"/>
+      <EXCEPTION DATE="20261230" DESCRIPTION="Company Shutdown"/>
+      <EXCEPTION DATE="20261231" DESCRIPTION="New Year's Eve"/>
+
+      <!-- Planned Database Maintenance Windows -->
+      <EXCEPTION DATE="20260214" DESCRIPTION="DB Maintenance - Q1 patching"/>
+      <EXCEPTION DATE="20260516" DESCRIPTION="DB Maintenance - Q2 patching"/>
+      <EXCEPTION DATE="20260815" DESCRIPTION="DB Maintenance - Q3 patching"/>
+      <EXCEPTION DATE="20261114" DESCRIPTION="DB Maintenance - Q4 patching"/>
+    </CONF_CAL>
+
+  </CALENDAR>
+
+  <!-- ================================================================== -->
+  <!-- PHARMA_MAINTENANCE_CALENDAR                                        -->
+  <!-- Calendar for maintenance-only jobs (DB stats, index rebuilds)      -->
+  <!-- Runs on maintenance weekends (quarterly)                           -->
+  <!-- ================================================================== -->
+  <CALENDAR DATACENTER="PHARMA_DC"
+            NAME="PHARMA_MAINTENANCE_CALENDAR"
+            TYPE="PERIODIC"
+            DESCRIPTION="Quarterly maintenance window calendar">
+
+    <CONF_CAL YEAR="2025">
+      <INCLUDE DATE="20250215" DESCRIPTION="Q1 maintenance window"/>
+      <INCLUDE DATE="20250517" DESCRIPTION="Q2 maintenance window"/>
+      <INCLUDE DATE="20250816" DESCRIPTION="Q3 maintenance window"/>
+      <INCLUDE DATE="20251115" DESCRIPTION="Q4 maintenance window"/>
+    </CONF_CAL>
+
+    <CONF_CAL YEAR="2026">
+      <INCLUDE DATE="20260214" DESCRIPTION="Q1 maintenance window"/>
+      <INCLUDE DATE="20260516" DESCRIPTION="Q2 maintenance window"/>
+      <INCLUDE DATE="20260815" DESCRIPTION="Q3 maintenance window"/>
+      <INCLUDE DATE="20261114" DESCRIPTION="Q4 maintenance window"/>
+    </CONF_CAL>
+
+  </CALENDAR>
+
+</DEFTABLE>

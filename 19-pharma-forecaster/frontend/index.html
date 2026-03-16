@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmaForecast Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1 class="logo">PharmaForecast</h1>
+            <p class="tagline">Pharmaceutical Demand &amp; Safety Forecasting</p>
+            <div class="header-status">
+                <span class="status-indicator" id="apiStatus"></span>
+                <span id="apiStatusText">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <!-- Controls Panel -->
+        <section class="controls-panel">
+            <div class="control-group">
+                <label for="seriesSelect">Time Series</label>
+                <select id="seriesSelect">
+                    <option value="drug_demand_acetaminophen">Acetaminophen Demand</option>
+                    <option value="drug_demand_amoxicillin">Amoxicillin Demand</option>
+                    <option value="drug_demand_lisinopril">Lisinopril Demand</option>
+                    <option value="ae_reports_statins">Statin AE Reports</option>
+                    <option value="ae_reports_ssri">SSRI AE Reports</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="horizonInput">Forecast Horizon (days)</label>
+                <input type="number" id="horizonInput" value="90" min="7" max="365">
+            </div>
+            <div class="control-group">
+                <label for="confidenceInput">Confidence Level</label>
+                <select id="confidenceInput">
+                    <option value="0.90">90%</option>
+                    <option value="0.95" selected>95%</option>
+                    <option value="0.99">99%</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="modelSelect">Model</label>
+                <select id="modelSelect">
+                    <option value="ensemble" selected>Ensemble</option>
+                    <option value="arima">ARIMA</option>
+                </select>
+            </div>
+            <button class="btn-primary" id="forecastBtn" onclick="generateForecast()">
+                Generate Forecast
+            </button>
+            <button class="btn-secondary" id="backtestBtn" onclick="runBacktest()">
+                Run Backtest
+            </button>
+        </section>
+
+        <!-- Alert Banner -->
+        <section class="alert-banner" id="alertBanner" style="display: none;">
+            <div class="alert-icon">!</div>
+            <div class="alert-content">
+                <span id="alertCount">0</span> active alerts
+                <a href="#alerts-section" class="alert-link">View Details</a>
+            </div>
+        </section>
+
+        <!-- Main Chart -->
+        <section class="chart-section">
+            <div class="section-header">
+                <h2>Forecast</h2>
+                <div class="chart-controls">
+                    <button class="chip active" data-view="forecast" onclick="switchView('forecast')">Forecast</button>
+                    <button class="chip" data-view="comparison" onclick="switchView('comparison')">Model Comparison</button>
+                    <button class="chip" data-view="components" onclick="switchView('components')">Components</button>
+                </div>
+            </div>
+            <div id="mainChart" class="chart-container"></div>
+        </section>
+
+        <!-- Metrics Panel -->
+        <section class="metrics-section">
+            <h2>Accuracy Metrics</h2>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <span class="metric-label">MAE</span>
+                    <span class="metric-value" id="metricMAE">--</span>
+                    <span class="metric-unit">units</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">RMSE</span>
+                    <span class="metric-value" id="metricRMSE">--</span>
+                    <span class="metric-unit">units</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">MAPE</span>
+                    <span class="metric-value" id="metricMAPE">--</span>
+                    <span class="metric-unit">%</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">SMAPE</span>
+                    <span class="metric-value" id="metricSMAPE">--</span>
+                    <span class="metric-unit">%</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Forecast Bias</span>
+                    <span class="metric-value" id="metricBias">--</span>
+                    <span class="metric-unit">units</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Model</span>
+                    <span class="metric-value metric-text" id="metricModel">--</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Backtest Results -->
+        <section class="backtest-section" id="backtestSection" style="display: none;">
+            <h2>Backtest Results</h2>
+            <div id="backtestChart" class="chart-container chart-small"></div>
+            <div class="backtest-summary" id="backtestSummary"></div>
+        </section>
+
+        <!-- Alerts Section -->
+        <section class="alerts-section" id="alerts-section">
+            <h2>Active Alerts</h2>
+            <div class="alerts-list" id="alertsList">
+                <div class="empty-state">No active alerts</div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>PharmaForecast v1.0.0 | Time Series Forecasting for Pharmaceutical Demand &amp; Safety</p>
+    </footer>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>

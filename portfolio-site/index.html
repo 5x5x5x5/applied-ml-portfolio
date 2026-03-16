@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Danny | AI/ML Engineer & Pharmaceutical Scientist</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Grain overlay -->
+  <div class="grain"></div>
+
+  <!-- Navigation -->
+  <nav class="nav" id="nav">
+    <div class="nav-logo">
+      <span class="nav-logo-helix">&#x29D6;</span>
+      <span class="nav-logo-text">D<span class="accent">.</span></span>
+    </div>
+    <div class="nav-links" id="nav-links">
+      <a href="#about" class="nav-link" data-label="About">About</a>
+      <a href="#expertise" class="nav-link" data-label="Expertise">Expertise</a>
+      <a href="#projects" class="nav-link" data-label="Projects">Projects</a>
+      <a href="#skills" class="nav-link" data-label="Skills">New Skills</a>
+      <a href="#contact" class="nav-link" data-label="Contact">Contact</a>
+    </div>
+    <button class="nav-hamburger" id="nav-hamburger" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero" id="hero">
+    <canvas id="dna-canvas"></canvas>
+    <div class="hero-content">
+      <div class="hero-eyebrow">
+        <span class="hero-eyebrow-line"></span>
+        <span class="hero-eyebrow-text">AI/ML Engineer &middot; Pharmaceutical Scientist</span>
+      </div>
+      <h1 class="hero-title">
+        <span class="hero-title-line" data-delay="0">Building</span>
+        <span class="hero-title-line" data-delay="1">Intelligent</span>
+        <span class="hero-title-line hero-title-accent" data-delay="2">Systems<span class="cursor">_</span></span>
+      </h1>
+      <p class="hero-subtitle">
+        Principal AI/ML Engineer with a foundation in Biology &amp; Pharmaceutical Sciences.
+        I architect cloud-native ML pipelines, low-latency prediction services, and
+        enterprise data platforms on AWS.
+      </p>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="hero-stat-value" data-count="20">0</span>
+          <span class="hero-stat-label">Projects</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-value" data-count="4">0</span>
+          <span class="hero-stat-label">DE Areas</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-value hero-stat-lt">&lt;100</span>
+          <span class="hero-stat-label">ms Latency</span>
+        </div>
+      </div>
+      <div class="hero-cta">
+        <a href="#projects" class="btn btn-primary">
+          <span>View Projects</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H7M17 7v10"/></svg>
+        </a>
+        <a href="#expertise" class="btn btn-ghost">Explore Expertise</a>
+      </div>
+    </div>
+    <div class="hero-scroll-indicator">
+      <div class="hero-scroll-line"></div>
+      <span>Scroll</span>
+    </div>
+  </section>
+
+  <!-- About Section -->
+  <section class="section about" id="about">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-number">01</span>
+        <h2 class="section-title">About</h2>
+        <div class="section-line"></div>
+      </div>
+      <div class="about-grid">
+        <div class="about-text">
+          <p class="about-lead">
+            I bridge the gap between <em>biological insight</em> and <em>production-grade engineering</em>.
+          </p>
+          <p>
+            With an MS in Pharmaceutical Sciences and deep expertise in cloud-native AI/ML,
+            I bring a unique perspective to building intelligent systems. My work spans from
+            molecular-level feature engineering to enterprise-scale data pipelines processing
+            millions of records daily.
+          </p>
+          <p>
+            I specialize in deploying highly available, security-first ML applications on AWS,
+            building real-time prediction services with sub-100ms latency, and designing
+            data warehouse architectures that power critical business decisions.
+          </p>
+        </div>
+        <div class="about-details">
+          <div class="about-detail-card">
+            <div class="about-detail-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            </div>
+            <h3>Education</h3>
+            <p>MS Pharmaceutical Sciences</p>
+            <p>BS Biology</p>
+          </div>
+          <div class="about-detail-card">
+            <div class="about-detail-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <h3>Focus</h3>
+            <p>Cloud AI/ML on AWS</p>
+            <p>Real-time ML Systems</p>
+          </div>
+          <div class="about-detail-card">
+            <div class="about-detail-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            </div>
+            <h3>Tooling</h3>
+            <p>Python, AWS, Docker</p>
+            <p>Snowflake, Airflow</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Expertise Section -->
+  <section class="section expertise" id="expertise">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-number">02</span>
+        <h2 class="section-title">Demonstrated Expertise</h2>
+        <div class="section-line"></div>
+      </div>
+      <div class="expertise-grid">
+        <div class="expertise-card" data-category="de1">
+          <div class="expertise-card-glow"></div>
+          <div class="expertise-card-number">DE&thinsp;1</div>
+          <h3 class="expertise-card-title">Cloud AI/ML &amp; AWS Infrastructure</h3>
+          <p class="expertise-card-desc">
+            Deploying AI/ML applications in the cloud using Python. Implementing highly available,
+            high-security solutions on AWS. Building data pipelines and daily file processing jobs.
+            Infrastructure as code with Docker &amp; CloudFormation. Application monitoring with DataDog.
+          </p>
+          <div class="expertise-card-skills">
+            <span class="skill-tag">Python</span>
+            <span class="skill-tag">AWS</span>
+            <span class="skill-tag">Docker</span>
+            <span class="skill-tag">CloudFormation</span>
+            <span class="skill-tag">DataDog</span>
+            <span class="skill-tag">ECS Fargate</span>
+            <span class="skill-tag">Lambda</span>
+            <span class="skill-tag">S3</span>
+            <span class="skill-tag">SQS</span>
+            <span class="skill-tag">KMS</span>
+          </div>
+        </div>
+        <div class="expertise-card" data-category="de2">
+          <div class="expertise-card-glow"></div>
+          <div class="expertise-card-number">DE&thinsp;2</div>
+          <h3 class="expertise-card-title">Feature Engineering &amp; MLOps</h3>
+          <p class="expertise-card-desc">
+            Extracting and building AI model features from structured databases and semi-structured
+            data sources using Snowflake and Python. Developing deployment pipelines using Airflow DAG
+            and Step Functions. Identifying model and feature drift using SnowSQL, Python, and SageMaker.
+          </p>
+          <div class="expertise-card-skills">
+            <span class="skill-tag">Snowflake</span>
+            <span class="skill-tag">SnowSQL</span>
+            <span class="skill-tag">Airflow</span>
+            <span class="skill-tag">Step Functions</span>
+            <span class="skill-tag">SageMaker</span>
+            <span class="skill-tag">MLflow</span>
+            <span class="skill-tag">Feature Store</span>
+            <span class="skill-tag">Drift Detection</span>
+          </div>
+        </div>
+        <div class="expertise-card" data-category="de3">
+          <div class="expertise-card-glow"></div>
+          <div class="expertise-card-number">DE&thinsp;3</div>
+          <h3 class="expertise-card-title">Full Stack &amp; Low Latency Systems</h3>
+          <p class="expertise-card-desc">
+            Developing scalable, sub-100ms full stack applications and data solutions using CI/CD
+            methodologies. Resolving production issues across the AI/ML project lifecycle and
+            ensuring end-to-end delivery with monitoring and automated remediation.
+          </p>
+          <div class="expertise-card-skills">
+            <span class="skill-tag">FastAPI</span>
+            <span class="skill-tag">React</span>
+            <span class="skill-tag">Redis</span>
+            <span class="skill-tag">WebSocket</span>
+            <span class="skill-tag">CI/CD</span>
+            <span class="skill-tag">GitHub Actions</span>
+            <span class="skill-tag">Prometheus</span>
+            <span class="skill-tag">Load Testing</span>
+          </div>
+        </div>
+        <div class="expertise-card" data-category="de4">
+          <div class="expertise-card-glow"></div>
+          <div class="expertise-card-number">DE&thinsp;4</div>
+          <h3 class="expertise-card-title">Data Warehousing &amp; ETL</h3>
+          <p class="expertise-card-desc">
+            Analyzing, architecting, and developing database applications, data warehouses, and
+            operational data stores using ETL tools (SQL, PL/SQL) and Control-M scheduling within
+            UNIX environments. Designing pseudo record keeping systems.
+          </p>
+          <div class="expertise-card-skills">
+            <span class="skill-tag">SQL</span>
+            <span class="skill-tag">PL/SQL</span>
+            <span class="skill-tag">Informatica</span>
+            <span class="skill-tag">Data Vault 2.0</span>
+            <span class="skill-tag">Star Schema</span>
+            <span class="skill-tag">Control-M</span>
+            <span class="skill-tag">ETL</span>
+            <span class="skill-tag">UNIX</span>
+            <span class="skill-tag">Shell Scripting</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Projects Section -->
+  <section class="section projects" id="projects">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-number">03</span>
+        <h2 class="section-title">Projects</h2>
+        <div class="section-line"></div>
+      </div>
+
+      <!-- Filter -->
+      <div class="project-filters">
+        <button class="filter-btn active" data-filter="all">All Projects</button>
+        <button class="filter-btn" data-filter="de1">Cloud AI/ML</button>
+        <button class="filter-btn" data-filter="de2">MLOps</button>
+        <button class="filter-btn" data-filter="de3">Full Stack</button>
+        <button class="filter-btn" data-filter="de4">Data/ETL</button>
+        <button class="filter-btn" data-filter="genai">GenAI</button>
+        <button class="filter-btn" data-filter="fun">Bio &amp; Fun</button>
+      </div>
+
+      <!-- Project Grid -->
+      <div class="project-grid">
+        <!-- DE1 Projects -->
+        <article class="project-card" data-category="de1" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge">DE 1</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><path d="M20 7h-3a2 2 0 0 1-2-2V2"/><path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2H9z"/><path d="M3 7.6v12.8A1.6 1.6 0 0 0 4.6 22h9.8"/><path d="M12 10v4M10 12h4"/></svg>
+            </div>
+            <h3 class="project-card-title">PharmaSentinel</h3>
+            <p class="project-card-subtitle">Drug Adverse Event Detection Pipeline</p>
+            <p class="project-card-desc">
+              NLP-powered pipeline processing FDA FAERS data to classify adverse drug events by severity.
+              Deployed on ECS Fargate with auto-scaling, S3-based data lake, SQS event routing, and
+              comprehensive DataDog APM monitoring. Full CloudFormation IaC.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">Python</span>
+              <span class="tag">FastAPI</span>
+              <span class="tag">AWS ECS</span>
+              <span class="tag">CloudFormation</span>
+              <span class="tag">Docker</span>
+              <span class="tag">NLP</span>
+              <span class="tag">DataDog</span>
+              <span class="tag">S3</span>
+              <span class="tag">SQS</span>
+              <span class="tag">Lambda</span>
+            </div>
+            <a href="./01-pharma-sentinel/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="de1" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge">DE 1</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7.5S12 22 12 22s-1-3-3-5.5S5 12 5 9a7 7 0 0 1 7-7z"/></svg>
+            </div>
+            <h3 class="project-card-title">CloudGenomics</h3>
+            <p class="project-card-subtitle">Genomic Variant Classification Service</p>
+            <p class="project-card-desc">
+              ML service classifying genetic variants (SNPs, indels) as benign through pathogenic
+              using population frequency, conservation scores, and functional impact features.
+              HIPAA-aware architecture with VPC endpoints, KMS encryption, and WAF protection.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">Python</span>
+              <span class="tag">RandomForest</span>
+              <span class="tag">BioPython</span>
+              <span class="tag">VCF</span>
+              <span class="tag">Step Functions</span>
+              <span class="tag">CloudFormation</span>
+              <span class="tag">KMS</span>
+              <span class="tag">DataDog</span>
+            </div>
+            <a href="./02-cloud-genomics/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <!-- DE2 Projects -->
+        <article class="project-card" data-category="de2" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge">DE 2</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M17.5 14v7M14 17.5h7"/></svg>
+            </div>
+            <h3 class="project-card-title">FeatureForge</h3>
+            <p class="project-card-subtitle">ML Feature Store &amp; Drift Detection</p>
+            <p class="project-card-desc">
+              Enterprise feature store built on Snowflake with point-in-time correct retrieval,
+              feature versioning, and lineage tracking. Automated drift detection using PSI,
+              KS tests, and SageMaker Model Monitor with Airflow DAG orchestration.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">Snowflake</span>
+              <span class="tag">SnowSQL</span>
+              <span class="tag">Python</span>
+              <span class="tag">Airflow DAG</span>
+              <span class="tag">SageMaker</span>
+              <span class="tag">Model Monitor</span>
+              <span class="tag">PSI</span>
+              <span class="tag">Feature Store</span>
+            </div>
+            <a href="./03-feature-forge/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="de2" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge">DE 2</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5"><circle cx="7" cy="12" r="3"/><circle cx="17" cy="12" r="3"/><path d="M10 12h4"/><path d="M7 9V4M17 9V4M7 15v5M17 15v5"/></svg>
+            </div>
+            <h3 class="project-card-title">DrugInteractionML</h3>
+            <p class="project-card-subtitle">Drug-Drug Interaction Prediction</p>
+            <p class="project-card-desc">
+              XGBoost-powered pipeline predicting adverse drug interactions using molecular fingerprints,
+              Snowflake-derived patient features, and co-prescription patterns. MLflow experiment tracking
+              with Step Functions orchestration and automated drift-triggered retraining.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">XGBoost</span>
+              <span class="tag">Snowflake</span>
+              <span class="tag">Airflow</span>
+              <span class="tag">Step Functions</span>
+              <span class="tag">MLflow</span>
+              <span class="tag">SageMaker</span>
+              <span class="tag">SHAP</span>
+              <span class="tag">SMILES</span>
+            </div>
+            <a href="./04-drug-interaction-ml/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <!-- DE3 Projects -->
+        <article class="project-card" data-category="de3" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge">DE 3</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--magenta)" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </div>
+            <h3 class="project-card-title">RxPredict</h3>
+            <p class="project-card-subtitle">Real-time Drug Response Prediction</p>
+            <p class="project-card-desc">
+              Sub-100ms pharmacogenomic prediction API. Predicts patient drug response from genetic
+              profiles using optimized sklearn pipelines, Redis caching, and feature hashing.
+              Includes latency benchmarking, circuit breakers, and full CI/CD with performance gates.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">FastAPI</span>
+              <span class="tag">Redis</span>
+              <span class="tag">scikit-learn</span>
+              <span class="tag">Prometheus</span>
+              <span class="tag">GitHub Actions</span>
+              <span class="tag">Docker</span>
+              <span class="tag">&lt;100ms p99</span>
+              <span class="tag">CI/CD</span>
+            </div>
+            <a href="./05-rx-predict/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="de3" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge">DE 3</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--magenta)" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <h3 class="project-card-title">BiomarkerDash</h3>
+            <p class="project-card-subtitle">Real-time Biomarker Monitoring Dashboard</p>
+            <p class="project-card-desc">
+              WebSocket-driven clinical dashboard streaming patient biomarker data with ML-powered
+              anomaly detection (Isolation Forest), trend analysis, and clinical alert escalation.
+              Full-stack with real-time charting, CI/CD pipeline, and production monitoring.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">FastAPI</span>
+              <span class="tag">WebSocket</span>
+              <span class="tag">Redis</span>
+              <span class="tag">Isolation Forest</span>
+              <span class="tag">Canvas API</span>
+              <span class="tag">CI/CD</span>
+              <span class="tag">Real-time</span>
+            </div>
+            <a href="./06-biomarker-dash/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <!-- DE4 Projects -->
+        <article class="project-card" data-category="de4" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge">DE 4</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.5"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4.03 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/></svg>
+            </div>
+            <h3 class="project-card-title">PharmaDataVault</h3>
+            <p class="project-card-subtitle">Pharmaceutical Data Warehouse</p>
+            <p class="project-card-desc">
+              Data Vault 2.0 warehouse for clinical trial data, drug manufacturing, and regulatory
+              submissions. Comprehensive PL/SQL ETL with hub/link/satellite architecture, star schema
+              data marts, Control-M scheduling, and UNIX automation scripts.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">Data Vault 2.0</span>
+              <span class="tag">PL/SQL</span>
+              <span class="tag">Star Schema</span>
+              <span class="tag">ETL</span>
+              <span class="tag">Control-M</span>
+              <span class="tag">UNIX</span>
+              <span class="tag">Great Expectations</span>
+            </div>
+            <a href="./07-pharma-data-vault/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="de4" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge">DE 4</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="M9 15h6"/></svg>
+            </div>
+            <h3 class="project-card-title">RegRecord</h3>
+            <p class="project-card-subtitle">Regulatory Record Keeping System</p>
+            <p class="project-card-desc">
+              Pseudo record keeping system for pharmaceutical regulatory compliance. Full audit trail
+              with PL/SQL triggers, submission workflow state machine, cryptographic pseudo-ID generation,
+              and Control-M automated compliance monitoring in UNIX environment.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">PL/SQL</span>
+              <span class="tag">Pseudo Records</span>
+              <span class="tag">Audit Trail</span>
+              <span class="tag">Control-M</span>
+              <span class="tag">UNIX</span>
+              <span class="tag">FastAPI</span>
+              <span class="tag">ETL</span>
+              <span class="tag">Compliance</span>
+            </div>
+            <a href="./08-reg-record/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <!-- Fun Projects -->
+        <article class="project-card" data-category="fun" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge fun-badge">BIO</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+            </div>
+            <h3 class="project-card-title">CellVision</h3>
+            <p class="project-card-subtitle">Microscopy Cell Type Classifier</p>
+            <p class="project-card-desc">
+              PyTorch CNN classifying blood cell types from microscopy images. Custom CellNet architecture
+              with transfer learning, GradCAM interpretability, stain normalization (Macenko method),
+              and a Streamlit interface for real-time classification.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">PyTorch</span>
+              <span class="tag">Computer Vision</span>
+              <span class="tag">ResNet18</span>
+              <span class="tag">GradCAM</span>
+              <span class="tag">Streamlit</span>
+              <span class="tag">Microscopy</span>
+            </div>
+            <a href="./09-cell-vision/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="fun" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge fun-badge">PHARMA</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.5"><path d="M9 3h6v11a6 6 0 0 1-6 0V3z"/><path d="M12 14v-4"/><path d="M9 10h6"/><circle cx="12" cy="20" r="2"/></svg>
+            </div>
+            <h3 class="project-card-title">MoleculeGen</h3>
+            <p class="project-card-subtitle">AI Drug Molecule Generator</p>
+            <p class="project-card-desc">
+              Variational Autoencoder generating novel drug-like molecules from SMILES representations.
+              Property-conditioned generation with Lipinski filtering, QED scoring, PAINS alerts,
+              and latent space interpolation for molecular optimization.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">PyTorch</span>
+              <span class="tag">VAE</span>
+              <span class="tag">SMILES</span>
+              <span class="tag">RDKit</span>
+              <span class="tag">Drug Discovery</span>
+              <span class="tag">Generative AI</span>
+            </div>
+            <a href="./10-molecule-gen/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="fun" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge fun-badge">BIO</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/><path d="M7 3.34C4.07 5.22 2 8.36 2 12"/><path d="M17 3.34C19.93 5.22 22 8.36 22 12"/></svg>
+            </div>
+            <h3 class="project-card-title">PlantPathologist</h3>
+            <p class="project-card-subtitle">Plant Disease Detection</p>
+            <p class="project-card-desc">
+              Mobile-friendly plant disease detection using EfficientNet-B0 transfer learning.
+              Identifies 15+ diseases across common crops with treatment recommendations.
+              Camera-enabled web interface for field use and a comprehensive disease knowledge base.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">PyTorch</span>
+              <span class="tag">EfficientNet</span>
+              <span class="tag">Transfer Learning</span>
+              <span class="tag">Mobile Web</span>
+              <span class="tag">Streamlit</span>
+            </div>
+            <a href="./11-plant-pathologist/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="fun" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge fun-badge">BIO</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10"/><path d="M16 4c1 2 2 4 2 8"/><path d="M12 2c2 2 4 5 4 10s-2 8-4 10"/><path d="M2 12h10"/><path d="M12 12h10"/></svg>
+            </div>
+            <h3 class="project-card-title">ProteinExplorer</h3>
+            <p class="project-card-subtitle">Protein Structure Analysis Tool</p>
+            <p class="project-card-desc">
+              Interactive protein sequence analysis with hydrophobicity profiling, secondary structure
+              prediction (Chou-Fasman), Needleman-Wunsch alignment with BLOSUM62 scoring,
+              and disorder prediction. SVG-based visualization dashboard.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">BioPython</span>
+              <span class="tag">Sequence Analysis</span>
+              <span class="tag">Alignment</span>
+              <span class="tag">FastAPI</span>
+              <span class="tag">SVG Charts</span>
+              <span class="tag">Biochemistry</span>
+            </div>
+            <a href="./12-protein-explorer/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <!-- GenAI / Advanced Projects -->
+        <article class="project-card" data-category="genai" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge genai-badge">GenAI</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="1.5"><path d="M12 2a4 4 0 0 1 4 4c0 1.1-.45 2.1-1.17 2.83L12 12l-2.83-3.17A4 4 0 0 1 12 2z"/><path d="M12 12l2.83 3.17A4 4 0 1 1 9.17 15.17L12 12z"/><path d="M2 12h4M18 12h4"/></svg>
+            </div>
+            <h3 class="project-card-title">PharmAssistAI</h3>
+            <p class="project-card-subtitle">LLM Pharmaceutical Knowledge Assistant</p>
+            <p class="project-card-desc">
+              RAG-powered knowledge assistant for pharmaceutical queries using Claude API and ChromaDB.
+              Ingests FDA drug labels and clinical guidelines with semantic chunking, hybrid search,
+              MMR re-ranking, citation attribution, and medical safety guardrails.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">Claude API</span>
+              <span class="tag">RAG</span>
+              <span class="tag">ChromaDB</span>
+              <span class="tag">LangChain</span>
+              <span class="tag">FastAPI</span>
+              <span class="tag">WebSocket</span>
+              <span class="tag">Streaming</span>
+            </div>
+            <a href="./13-llm-pharma-assistant/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="de1" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge">DE 1</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="1.5"><path d="M2 12h4l3-9 6 18 3-9h4"/></svg>
+            </div>
+            <h3 class="project-card-title">StreamRx</h3>
+            <p class="project-card-subtitle">Real-time Pharma Event Streaming</p>
+            <p class="project-card-desc">
+              High-throughput streaming pipeline processing prescription and adverse event data
+              in real-time using Kafka and AWS Kinesis. Faust stream processing with sliding-window
+              safety signal detection, S3 Parquet sink, and MSK CloudFormation deployment.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">Kafka</span>
+              <span class="tag">Kinesis</span>
+              <span class="tag">Faust</span>
+              <span class="tag">AWS MSK</span>
+              <span class="tag">S3 Parquet</span>
+              <span class="tag">CloudFormation</span>
+              <span class="tag">DataDog</span>
+            </div>
+            <a href="./14-streaming-pipeline/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="de3" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge">DE 3</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--magenta)" stroke-width="1.5"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            </div>
+            <h3 class="project-card-title">ModelLab</h3>
+            <p class="project-card-subtitle">A/B Testing Platform for ML Models</p>
+            <p class="project-card-desc">
+              Full experiment lifecycle platform with Bayesian and frequentist analysis, consistent-hash
+              traffic routing, sequential testing, CUPED variance reduction, SRM detection,
+              and automated champion/challenger model promotion via SageMaker.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">Bayesian A/B</span>
+              <span class="tag">FastAPI</span>
+              <span class="tag">SageMaker</span>
+              <span class="tag">Redis</span>
+              <span class="tag">PostgreSQL</span>
+              <span class="tag">CI/CD</span>
+              <span class="tag">Statistical Testing</span>
+            </div>
+            <a href="./15-ab-testing-platform/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="de4" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge">DE 4</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.5"><path d="M4 6h16M4 12h16M4 18h16"/><path d="M8 6v12"/><path d="M16 6v12"/></svg>
+            </div>
+            <h3 class="project-card-title">PharmaFlow</h3>
+            <p class="project-card-subtitle">Informatica-Style ETL Framework</p>
+            <p class="project-card-desc">
+              Python ETL framework mirroring Informatica PowerCenter patterns: Mappings, Sessions,
+              Workflows, and 11 transformation types (Expression, Lookup, Router, Aggregator, etc.).
+              Includes SCD Type 2 PL/SQL procedures, Control-M jobs, and UNIX automation.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">Informatica Patterns</span>
+              <span class="tag">PL/SQL</span>
+              <span class="tag">ETL</span>
+              <span class="tag">SCD Type 2</span>
+              <span class="tag">Control-M</span>
+              <span class="tag">UNIX</span>
+              <span class="tag">Great Expectations</span>
+            </div>
+            <a href="./16-pharma-etl-informatica/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="fun" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge fun-badge">BIO</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M8 3.13a4 4 0 0 0 0 7.75"/></svg>
+            </div>
+            <h3 class="project-card-title">WildEye</h3>
+            <p class="project-card-subtitle">Wildlife Species Classifier</p>
+            <p class="project-card-desc">
+              Camera trap image classifier using MobileNetV3 for efficient edge deployment.
+              Identifies 20+ species with IR/night vision handling, biodiversity analytics
+              (Shannon index, occupancy modeling), and AWS Lambda serverless classification.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">PyTorch</span>
+              <span class="tag">MobileNetV3</span>
+              <span class="tag">ONNX</span>
+              <span class="tag">Lambda</span>
+              <span class="tag">DynamoDB</span>
+              <span class="tag">Conservation</span>
+            </div>
+            <a href="./17-wildlife-classifier/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="fun" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge fun-badge">FUN</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.5"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M15 9l-3 3-3-3"/><path d="M12 12v6"/></svg>
+            </div>
+            <h3 class="project-card-title">NutriOptimize</h3>
+            <p class="project-card-subtitle">AI Recipe &amp; Nutrition Optimizer</p>
+            <p class="project-card-desc">
+              Multi-objective recipe optimizer using scipy.optimize to maximize nutrition while
+              preserving taste. USDA nutritional database, ingredient substitution engine,
+              dietary constraint satisfaction, and meal plan optimization.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">scipy.optimize</span>
+              <span class="tag">Nutritional Science</span>
+              <span class="tag">FastAPI</span>
+              <span class="tag">Constraint Satisfaction</span>
+              <span class="tag">Meal Planning</span>
+            </div>
+            <a href="./18-recipe-optimizer/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="de2" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge">DE 2</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.5"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 4 4-12"/></svg>
+            </div>
+            <h3 class="project-card-title">PharmaForecast</h3>
+            <p class="project-card-subtitle">Time Series Forecasting for Pharma</p>
+            <p class="project-card-desc">
+              Ensemble forecasting system combining ARIMA, Prophet, and ML models for drug demand
+              prediction, shortage early warning, and adverse event trend analysis. Airflow DAG
+              orchestration with automated accuracy monitoring and retraining triggers.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">Prophet</span>
+              <span class="tag">ARIMA</span>
+              <span class="tag">Airflow</span>
+              <span class="tag">CloudFormation</span>
+              <span class="tag">Plotly</span>
+              <span class="tag">Time Series</span>
+              <span class="tag">Ensemble</span>
+            </div>
+            <a href="./19-pharma-forecaster/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+
+        <article class="project-card" data-category="genai" data-visible="true">
+          <div class="project-card-inner">
+            <div class="project-card-badge genai-badge">GenAI</div>
+            <div class="project-card-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="1.5"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M9 6h6M6 9v6M18 9v6M9 18h6"/></svg>
+            </div>
+            <h3 class="project-card-title">PharmaAgents</h3>
+            <p class="project-card-subtitle">Multi-Agent AI Research System</p>
+            <p class="project-card-desc">
+              Multi-agent system using Claude API where specialized agents (Literature Review,
+              Drug Safety, Medicinal Chemistry, Regulatory Intelligence) collaborate on drug
+              research queries with task decomposition, tool use, and results synthesis.
+            </p>
+            <div class="project-card-tags">
+              <span class="tag">Claude API</span>
+              <span class="tag">Multi-Agent</span>
+              <span class="tag">Tool Use</span>
+              <span class="tag">FastAPI</span>
+              <span class="tag">WebSocket</span>
+              <span class="tag">Orchestration</span>
+            </div>
+            <a href="./20-pharma-agents/" class="project-card-link">
+              <span>Explore Project</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </a>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack Section -->
+  <section class="section tech" id="tech">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-number">04</span>
+        <h2 class="section-title">Technology Stack</h2>
+        <div class="section-line"></div>
+      </div>
+      <div class="tech-grid">
+        <div class="tech-category">
+          <h3 class="tech-category-title">Languages &amp; Frameworks</h3>
+          <div class="tech-items">
+            <div class="tech-item">Python</div>
+            <div class="tech-item">SQL / PL/SQL</div>
+            <div class="tech-item">JavaScript</div>
+            <div class="tech-item">Shell/Bash</div>
+            <div class="tech-item">FastAPI</div>
+            <div class="tech-item">PyTorch</div>
+            <div class="tech-item">scikit-learn</div>
+            <div class="tech-item">XGBoost</div>
+            <div class="tech-item">LangChain</div>
+            <div class="tech-item">Prophet / statsmodels</div>
+          </div>
+        </div>
+        <div class="tech-category">
+          <h3 class="tech-category-title">AWS &amp; Cloud</h3>
+          <div class="tech-items">
+            <div class="tech-item">ECS Fargate</div>
+            <div class="tech-item">Lambda</div>
+            <div class="tech-item">S3</div>
+            <div class="tech-item">SQS / SNS</div>
+            <div class="tech-item">Step Functions</div>
+            <div class="tech-item">SageMaker</div>
+            <div class="tech-item">CloudFormation</div>
+            <div class="tech-item">KMS / IAM</div>
+            <div class="tech-item">Kinesis / MSK</div>
+            <div class="tech-item">DynamoDB</div>
+          </div>
+        </div>
+        <div class="tech-category">
+          <h3 class="tech-category-title">Data &amp; MLOps</h3>
+          <div class="tech-items">
+            <div class="tech-item">Snowflake</div>
+            <div class="tech-item">Airflow</div>
+            <div class="tech-item">MLflow</div>
+            <div class="tech-item">Docker</div>
+            <div class="tech-item">Redis</div>
+            <div class="tech-item">Kafka</div>
+            <div class="tech-item">DataDog</div>
+            <div class="tech-item">Prometheus</div>
+            <div class="tech-item">Control-M</div>
+            <div class="tech-item">Informatica (Patterns)</div>
+          </div>
+        </div>
+        <div class="tech-category">
+          <h3 class="tech-category-title">Domain &amp; GenAI</h3>
+          <div class="tech-items">
+            <div class="tech-item">Pharmaceutical Sciences</div>
+            <div class="tech-item">Molecular Biology</div>
+            <div class="tech-item">Drug Discovery</div>
+            <div class="tech-item">Clinical Trials</div>
+            <div class="tech-item">GenAI / LLMs / RAG</div>
+            <div class="tech-item">Multi-Agent Systems</div>
+            <div class="tech-item">Genomics</div>
+            <div class="tech-item">HIPAA / GxP</div>
+            <div class="tech-item">A/B Testing</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Suggested Skills Section -->
+  <section class="section suggested-skills" id="skills">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-number">05</span>
+        <h2 class="section-title">Suggested Skills to Explore</h2>
+        <div class="section-line"></div>
+      </div>
+      <p class="skills-intro">
+        Beyond core competencies, these emerging skills complement the AI/ML engineering landscape
+        and are areas of active learning and exploration.
+      </p>
+      <div class="skills-grid">
+        <div class="skill-card">
+          <div class="skill-card-icon" style="color: var(--cyan)">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <h3>Kubernetes / EKS</h3>
+          <p>Container orchestration for complex ML workloads requiring auto-scaling, GPU scheduling, and multi-model serving across clusters.</p>
+        </div>
+        <div class="skill-card">
+          <div class="skill-card-icon" style="color: var(--green)">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2L2 19h20L12 2z"/><path d="M12 8v4M12 16h.01"/></svg>
+          </div>
+          <h3>Terraform</h3>
+          <p>Multi-cloud infrastructure as code complementing CloudFormation, enabling hybrid cloud deployments and provider-agnostic resource management.</p>
+        </div>
+        <div class="skill-card">
+          <div class="skill-card-icon" style="color: var(--magenta)">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          </div>
+          <h3>LLM Fine-tuning &amp; RLHF</h3>
+          <p>Domain-specific LLM adaptation through fine-tuning on pharmaceutical corpora, RLHF for safety-critical medical applications, and LoRA/QLoRA for efficient training.</p>
+        </div>
+        <div class="skill-card">
+          <div class="skill-card-icon" style="color: var(--amber)">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          </div>
+          <h3>Apache Spark / Databricks</h3>
+          <p>Distributed computing for large-scale feature engineering and model training on petabyte-scale pharmaceutical datasets.</p>
+        </div>
+        <div class="skill-card">
+          <div class="skill-card-icon" style="color: var(--teal)">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>ML Security &amp; Adversarial Robustness</h3>
+          <p>Defending ML models against adversarial attacks, data poisoning, model extraction, and ensuring compliance with AI governance frameworks.</p>
+        </div>
+        <div class="skill-card">
+          <div class="skill-card-icon" style="color: var(--cyan)">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h3>ML Platform Engineering</h3>
+          <p>Building internal ML platforms with self-service model deployment, feature stores, experiment tracking, and automated retraining orchestration at scale.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact Section -->
+  <section class="section contact" id="contact">
+    <div class="section-container">
+      <div class="contact-content">
+        <h2 class="contact-title">Let's Build Something<br><span class="accent">Extraordinary</span></h2>
+        <p class="contact-desc">
+          Interested in collaborating on AI/ML infrastructure, pharmaceutical data systems, or
+          cutting-edge ML applications? Let's connect.
+        </p>
+        <div class="contact-links">
+          <a href="mailto:danny@example.com" class="contact-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>
+            <span>Email</span>
+          </a>
+          <a href="#" class="contact-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+            <span>LinkedIn</span>
+          </a>
+          <a href="#" class="contact-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+            <span>GitHub</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <span class="footer-copy">&copy; 2026 Danny. All rights reserved.</span>
+      <span class="footer-note">Built with vanilla HTML, CSS &amp; JS. No frameworks.</span>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>

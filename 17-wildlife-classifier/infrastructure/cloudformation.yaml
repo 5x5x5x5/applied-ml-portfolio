@@ -1,0 +1,330 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  WildEye - Wildlife Species Classifier infrastructure.
+  Deploys S3 for camera trap image storage, Lambda for serverless
+  classification, DynamoDB for results persistence, and API Gateway
+  for external access.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+    AllowedValues:
+      - production
+      - staging
+      - development
+    Description: Deployment environment name.
+
+  ModelS3Key:
+    Type: String
+    Default: models/wildeye-v1.onnx
+    Description: S3 key of the ONNX model artifact in the images bucket.
+
+  LambdaMemorySize:
+    Type: Number
+    Default: 1024
+    MinValue: 512
+    MaxValue: 3008
+    Description: >
+      Lambda memory in MB. Classification requires ~800MB for ONNX
+      Runtime and image preprocessing. Higher memory also allocates
+      proportionally more CPU.
+
+  LambdaTimeout:
+    Type: Number
+    Default: 60
+    MinValue: 30
+    MaxValue: 300
+    Description: Lambda timeout in seconds.
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # S3 Bucket - Camera trap image storage
+  # ---------------------------------------------------------------------------
+  ImageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "wildeye-${EnvironmentName}-images"
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: RawToIntelligentTiering
+            Status: Enabled
+            Prefix: raw/
+            Transitions:
+              - StorageClass: INTELLIGENT_TIERING
+                TransitionInDays: 30
+              - StorageClass: GLACIER
+                TransitionInDays: 180
+            ExpirationInDays: 1825  # ~5 years
+          - Id: ClassifiedToIA
+            Status: Enabled
+            Prefix: classified/
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 90
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: "s3:ObjectCreated:*"
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: raw/
+                  - Name: suffix
+                    Value: .jpg
+            Function: !GetAtt ClassifierFunction.Arn
+          - Event: "s3:ObjectCreated:*"
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: raw/
+                  - Name: suffix
+                    Value: .jpeg
+            Function: !GetAtt ClassifierFunction.Arn
+          - Event: "s3:ObjectCreated:*"
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: raw/
+                  - Name: suffix
+                    Value: .png
+            Function: !GetAtt ClassifierFunction.Arn
+      Tags:
+        - Key: Project
+          Value: WildEye
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # ---------------------------------------------------------------------------
+  # DynamoDB Table - Classification results
+  # ---------------------------------------------------------------------------
+  ClassificationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "wildeye-${EnvironmentName}-classifications"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: camera_id
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+        - AttributeName: top_species
+          AttributeType: S
+      KeySchema:
+        - AttributeName: camera_id
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: species-index
+          KeySchema:
+            - AttributeName: top_species
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Project
+          Value: WildEye
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # ---------------------------------------------------------------------------
+  # Lambda Function - Serverless classifier
+  # ---------------------------------------------------------------------------
+  ClassifierFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "wildeye-${EnvironmentName}-classifier-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: WildEyeClassifierPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt ImageBucket.Arn
+                  - !Sub "${ImageBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt ClassificationTable.Arn
+                  - !Sub "${ClassificationTable.Arn}/index/*"
+
+  ClassifierFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "wildeye-${EnvironmentName}-classifier"
+      Runtime: python3.11
+      Handler: wild_eye.pipeline.s3_processor.lambda_handler
+      Role: !GetAtt ClassifierFunctionRole.Arn
+      MemorySize: !Ref LambdaMemorySize
+      Timeout: !Ref LambdaTimeout
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref ImageBucket
+          TABLE_NAME: !Ref ClassificationTable
+          MODEL_PATH: !Sub "s3://${ImageBucket}/${ModelS3Key}"
+          PYTHONPATH: /opt/python
+      Layers:
+        - !Ref OnnxRuntimeLayer
+      Tags:
+        - Key: Project
+          Value: WildEye
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # Lambda layer for ONNX Runtime + dependencies.
+  OnnxRuntimeLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: !Sub "wildeye-${EnvironmentName}-onnxruntime"
+      Description: ONNX Runtime, Pillow, and NumPy for inference
+      CompatibleRuntimes:
+        - python3.11
+      Content:
+        S3Bucket: !Ref ImageBucket
+        S3Key: layers/onnxruntime-layer.zip
+
+  # Permission for S3 to invoke Lambda.
+  S3InvokeLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ClassifierFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !GetAtt ImageBucket.Arn
+
+  # ---------------------------------------------------------------------------
+  # API Gateway - REST API
+  # ---------------------------------------------------------------------------
+  WildEyeApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "wildeye-${EnvironmentName}-api"
+      Description: WildEye Wildlife Classifier REST API
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+
+  # /classify resource
+  ClassifyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref WildEyeApi
+      ParentId: !GetAtt WildEyeApi.RootResourceId
+      PathPart: classify
+
+  ClassifyMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref WildEyeApi
+      ResourceId: !Ref ClassifyResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub >-
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ClassifierFunction.Arn}/invocations
+
+  # /species resource
+  SpeciesResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref WildEyeApi
+      ParentId: !GetAtt WildEyeApi.RootResourceId
+      PathPart: species
+
+  SpeciesMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref WildEyeApi
+      ResourceId: !Ref SpeciesResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub >-
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ClassifierFunction.Arn}/invocations
+
+  # API Deployment
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - ClassifyMethod
+      - SpeciesMethod
+    Properties:
+      RestApiId: !Ref WildEyeApi
+
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref WildEyeApi
+      DeploymentId: !Ref ApiDeployment
+      StageName: !Ref EnvironmentName
+      MethodSettings:
+        - HttpMethod: "*"
+          ResourcePath: "/*"
+          ThrottlingBurstLimit: 100
+          ThrottlingRateLimit: 50
+
+  ApiGatewayInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ClassifierFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WildEyeApi}/*"
+
+Outputs:
+  ImageBucketName:
+    Description: S3 bucket for camera trap images
+    Value: !Ref ImageBucket
+
+  ClassificationTableName:
+    Description: DynamoDB table for classification results
+    Value: !Ref ClassificationTable
+
+  ClassifierFunctionArn:
+    Description: ARN of the classifier Lambda function
+    Value: !GetAtt ClassifierFunction.Arn
+
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${WildEyeApi}.execute-api.${AWS::Region}.amazonaws.com/${EnvironmentName}"

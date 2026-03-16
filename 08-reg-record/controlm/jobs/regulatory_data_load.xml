@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Control-M Job Definition: Daily Regulatory Data ETL
+
+  Schedule: Daily at 04:00 EST (after overnight data feed delivery)
+  Purpose: Loads regulatory submission data from external feeds,
+           transforms/standardizes, merges into production tables,
+           validates business rules, and generates load summary.
+
+  Data Sources:
+    - FDA CDER submissions feed (SFTP)
+    - EMA regulatory feed (API)
+    - Internal clinical trial management system (database link)
+
+  Dependencies:
+    - External data feeds delivered to staging area
+    - Database available with sufficient tablespace
+    - Previous day's archival jobs completed (if applicable)
+-->
+<DEFTABLE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <FOLDER DATACENTER="PROD_DC" FOLDER_NAME="REGRECORD_ETL_DAILY"
+          FOLDER_ORDER_METHOD="SYSTEM"
+          APPLICATION="REGRECORD" SUB_APPLICATION="ETL"
+          RUN_AS="svc_regrecord" ACTIVE_FROM="20250101" ACTIVE_TILL="20991231">
+
+    <!-- ================================================================ -->
+    <!-- Job 1: Receive and stage external data feeds -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_ETL_STAGE_DATA"
+         DESCRIPTION="Retrieve external regulatory data feeds and load to staging"
+         CMDLINE="/opt/regrecord/scripts/unix/etl_stage_data.sh"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-etl01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="ETL"
+         MAXWAIT="60" MAXRERUN="3"
+         TIMEFROM="0400" TIMEUNTIL="0500">
+
+      <INCOND NAME="REGRECORD_DB_AVAILABLE" ODATE="ODAT" AND_OR="AND"/>
+      <INCOND NAME="DATA_FEEDS_READY" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="ETL_STAGING_COMPLETE" ODATE="ODAT" SIGN="+"/>
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOMAIL DEST="etl-ops@company.com,regulatory-ops@company.com"
+                SUBJECT="ALERT: RegRecord ETL Staging Failed"
+                MESSAGE="Data feed staging failed for %%$ODATE. Check feed availability and connectivity."/>
+        <DOACTION ACTION="SETERROR"/>
+      </ON>
+
+      <SHOUT WHEN="EXEC" DEST="etl-ops@company.com" URGENCY="R"
+             MESSAGE="ETL data staging started for %%$ODATE"/>
+
+      <QUANTITATIVE NAME="SFTP_CONNECTIONS" QUANT="2" ONFAIL="WAIT"/>
+
+      <VARIABLE NAME="%%BATCH_ID" VALUE="ETL_%%$ODATE_%%ORDERID"/>
+      <VARIABLE NAME="%%FEED_DIR" VALUE="/data/incoming/regulatory"/>
+      <VARIABLE NAME="%%STAGING_SCHEMA" VALUE="STG_REGRECORD"/>
+      <VARIABLE NAME="%%SOURCE_SYSTEMS" VALUE="EXTERNAL_A,EXTERNAL_B,INTERNAL_CTMS"/>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 2: Validate staged data -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_ETL_VALIDATE"
+         DESCRIPTION="Validate staged data for completeness and format"
+         CMDLINE="sqlplus -s svc_regrecord/%%PASSWORD@REGRECORD_DB @/opt/regrecord/sql/etl/run_validation.sql %%BATCH_ID"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-db01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="ETL"
+         MAXWAIT="30" MAXRERUN="1"
+         TIMEFROM="0500" TIMEUNTIL="0530">
+
+      <INCOND NAME="ETL_STAGING_COMPLETE" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="ETL_VALIDATION_COMPLETE" ODATE="ODAT" SIGN="+"/>
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOMAIL DEST="etl-ops@company.com"
+                SUBJECT="ALERT: RegRecord ETL Validation Failed"
+                MESSAGE="Data validation failed for batch %%BATCH_ID. Review error records in STG_REGULATORY_FEED."/>
+      </ON>
+
+      <VARIABLE NAME="%%BATCH_ID" VALUE="%%RR_ETL_STAGE_DATA:BATCH_ID"/>
+      <VARIABLE NAME="%%ERROR_THRESHOLD_PCT" VALUE="5"/>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 3: Transform and standardize data -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_ETL_TRANSFORM"
+         DESCRIPTION="Transform agency codes, normalize dates, standardize formats"
+         CMDLINE="sqlplus -s svc_regrecord/%%PASSWORD@REGRECORD_DB @/opt/regrecord/sql/etl/run_transform.sql %%BATCH_ID"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-db01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="ETL"
+         MAXWAIT="30" MAXRERUN="1"
+         TIMEFROM="0530" TIMEUNTIL="0600">
+
+      <INCOND NAME="ETL_VALIDATION_COMPLETE" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="ETL_TRANSFORM_COMPLETE" ODATE="ODAT" SIGN="+"/>
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOMAIL DEST="etl-ops@company.com"
+                SUBJECT="ALERT: RegRecord ETL Transform Failed"
+                MESSAGE="Data transformation failed for batch %%BATCH_ID."/>
+        <DOACTION ACTION="SETERROR"/>
+      </ON>
+
+      <VARIABLE NAME="%%BATCH_ID" VALUE="%%RR_ETL_STAGE_DATA:BATCH_ID"/>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 4: Merge into production tables -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_ETL_MERGE"
+         DESCRIPTION="MERGE (upsert) validated/transformed data into production tables"
+         CMDLINE="sqlplus -s svc_regrecord/%%PASSWORD@REGRECORD_DB @/opt/regrecord/sql/etl/run_merge.sql %%BATCH_ID"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-db01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="ETL"
+         MAXWAIT="60" MAXRERUN="1"
+         TIMEFROM="0600" TIMEUNTIL="0700">
+
+      <INCOND NAME="ETL_TRANSFORM_COMPLETE" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="ETL_MERGE_COMPLETE" ODATE="ODAT" SIGN="+"/>
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOMAIL DEST="etl-ops@company.com,dba-team@company.com"
+                SUBJECT="CRITICAL: RegRecord ETL Merge Failed"
+                MESSAGE="Production merge failed for batch %%BATCH_ID. Data may be partially loaded."/>
+        <DOACTION ACTION="SETERROR"/>
+      </ON>
+
+      <QUANTITATIVE NAME="DB_CONNECTIONS" QUANT="3" ONFAIL="WAIT"/>
+
+      <VARIABLE NAME="%%BATCH_ID" VALUE="%%RR_ETL_STAGE_DATA:BATCH_ID"/>
+      <VARIABLE NAME="%%COMMIT_BATCH_SIZE" VALUE="1000"/>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 5: Post-load business rule validation -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_ETL_BUSINESS_RULES"
+         DESCRIPTION="Validate loaded data against business rules"
+         CMDLINE="sqlplus -s svc_regrecord/%%PASSWORD@REGRECORD_DB @/opt/regrecord/sql/etl/run_business_rules.sql %%BATCH_ID"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-db01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="ETL"
+         MAXWAIT="20" MAXRERUN="1"
+         TIMEFROM="0700" TIMEUNTIL="0730">
+
+      <INCOND NAME="ETL_MERGE_COMPLETE" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="ETL_RULES_COMPLETE" ODATE="ODAT" SIGN="+"/>
+
+      <VARIABLE NAME="%%BATCH_ID" VALUE="%%RR_ETL_STAGE_DATA:BATCH_ID"/>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 6: Generate ETL summary report -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_ETL_SUMMARY"
+         DESCRIPTION="Generate and distribute ETL load summary report"
+         CMDLINE="/opt/regrecord/scripts/unix/etl_summary.sh %%BATCH_ID"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-etl01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="ETL"
+         MAXWAIT="10" MAXRERUN="1"
+         TIMEFROM="0730" TIMEUNTIL="0800">
+
+      <INCOND NAME="ETL_RULES_COMPLETE" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="DAILY_ETL_COMPLETE" ODATE="ODAT" SIGN="+"/>
+
+      <ON STMT="*" CODE="0">
+        <DOMAIL DEST="regulatory-ops@company.com,etl-ops@company.com"
+                SUBJECT="RegRecord ETL Summary - %%$ODATE (Batch: %%BATCH_ID)"
+                MESSAGE="Daily ETL load completed. Summary report attached."
+                ATTACH_SYSOUT="Y"/>
+      </ON>
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOMAIL DEST="etl-ops@company.com"
+                SUBJECT="WARNING: ETL Summary Generation Failed"
+                MESSAGE="ETL data was loaded but summary report generation failed."/>
+      </ON>
+
+      <VARIABLE NAME="%%BATCH_ID" VALUE="%%RR_ETL_STAGE_DATA:BATCH_ID"/>
+      <VARIABLE NAME="%%REPORT_DIR" VALUE="/opt/regrecord/reports/etl"/>
+    </JOB>
+
+  </FOLDER>
+</DEFTABLE>

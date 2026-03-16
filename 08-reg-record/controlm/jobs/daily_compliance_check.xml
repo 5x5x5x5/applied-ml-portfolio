@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Control-M Job Definition: Daily Compliance Status Check
+
+  Schedule: Daily at 06:00 EST
+  Purpose: Checks all compliance records for overdue items, escalates
+           as needed, generates compliance report, and sends alerts.
+
+  Dependencies:
+    - Database must be available
+    - Previous day's ETL jobs must have completed
+
+  On Failure:
+    - Sends alert to regulatory-ops@company.com
+    - Sets condition COMPLIANCE_CHECK_FAILED
+-->
+<DEFTABLE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <FOLDER DATACENTER="PROD_DC" FOLDER_NAME="REGRECORD_DAILY"
+          FOLDER_ORDER_METHOD="SYSTEM"
+          APPLICATION="REGRECORD" SUB_APPLICATION="COMPLIANCE"
+          RUN_AS="svc_regrecord" ACTIVE_FROM="20250101" ACTIVE_TILL="20991231">
+
+    <!-- ================================================================ -->
+    <!-- Job 1: Pre-check - Verify database connectivity -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_COMPLIANCE_PRECHECK"
+         DESCRIPTION="Verify database connectivity and prerequisites"
+         CMDLINE="/opt/regrecord/scripts/unix/compliance_check.sh --precheck"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-app01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="COMPLIANCE"
+         MAXWAIT="5" MAXRERUN="2" TIMEFROM="0600" TIMEUNTIL="0615">
+
+      <INCOND NAME="REGRECORD_DB_AVAILABLE" ODATE="ODAT" AND_OR="AND"/>
+      <INCOND NAME="DAILY_ETL_COMPLETE" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="COMPLIANCE_PRECHECK_OK" ODATE="ODAT" SIGN="+"/>
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOMAIL DEST="regulatory-ops@company.com"
+                SUBJECT="ALERT: RegRecord Compliance Pre-check Failed"
+                MESSAGE="Database connectivity check failed. Compliance check cannot proceed."/>
+        <DOACTION ACTION="SETERROR"/>
+      </ON>
+
+      <QUANTITATIVE NAME="DB_CONNECTIONS" QUANT="1" ONFAIL="WAIT"/>
+
+      <VARIABLE NAME="%%BATCH_DATE" VALUE="%%$ODATE"/>
+      <VARIABLE NAME="%%LOG_DIR" VALUE="/var/log/regrecord"/>
+      <VARIABLE NAME="%%ENVIRONMENT" VALUE="PRODUCTION"/>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 2: Run compliance status check -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_COMPLIANCE_CHECK"
+         DESCRIPTION="Check all compliance records and escalate overdue items"
+         CMDLINE="/opt/regrecord/scripts/unix/compliance_check.sh --run"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-app01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="COMPLIANCE"
+         MAXWAIT="30" MAXRERUN="1" TIMEFROM="0615" TIMEUNTIL="0700">
+
+      <INCOND NAME="COMPLIANCE_PRECHECK_OK" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="COMPLIANCE_CHECK_DONE" ODATE="ODAT" SIGN="+"/>
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOMAIL DEST="regulatory-ops@company.com"
+                SUBJECT="ALERT: RegRecord Compliance Check Failed"
+                MESSAGE="Daily compliance check failed. Review logs at /var/log/regrecord/compliance_%%$ODATE.log"/>
+        <DOACTION ACTION="SETERROR"/>
+      </ON>
+
+      <ON STMT="*" CODE="0">
+        <DOMAIL DEST="regulatory-team@company.com"
+                SUBJECT="RegRecord Daily Compliance Report - %%$ODATE"
+                MESSAGE="Daily compliance check completed. Report: /opt/regrecord/reports/compliance_%%$ODATE.html"
+                ATTACH_SYSOUT="Y"/>
+      </ON>
+
+      <SHOUT WHEN="EXEC" DEST="regulatory-ops@company.com" URGENCY="R"
+             MESSAGE="Compliance check started for %%$ODATE"/>
+
+      <VARIABLE NAME="%%BATCH_DATE" VALUE="%%$ODATE"/>
+      <VARIABLE NAME="%%ESCALATION_USER" VALUE="system_escalation"/>
+      <VARIABLE NAME="%%ALERT_THRESHOLD_DAYS" VALUE="7"/>
+      <VARIABLE NAME="%%REPORT_FORMAT" VALUE="HTML"/>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 3: Generate and distribute compliance alerts -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_COMPLIANCE_ALERTS"
+         DESCRIPTION="Send targeted alerts for critical compliance items"
+         CMDLINE="/opt/regrecord/scripts/unix/compliance_check.sh --alerts"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-app01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="COMPLIANCE"
+         MAXWAIT="15" MAXRERUN="1" TIMEFROM="0700" TIMEUNTIL="0730">
+
+      <INCOND NAME="COMPLIANCE_CHECK_DONE" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="COMPLIANCE_ALERTS_SENT" ODATE="ODAT" SIGN="+"/>
+      <OUTCOND NAME="DAILY_COMPLIANCE_COMPLETE" ODATE="ODAT" SIGN="+"/>
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOMAIL DEST="regulatory-ops@company.com"
+                SUBJECT="WARNING: Compliance Alert Distribution Failed"
+                MESSAGE="Alert distribution had errors. Some notifications may not have been sent."/>
+      </ON>
+
+      <VARIABLE NAME="%%BATCH_DATE" VALUE="%%$ODATE"/>
+      <VARIABLE NAME="%%ALERT_RECIPIENTS" VALUE="regulatory-team@company.com,compliance-mgr@company.com"/>
+      <VARIABLE NAME="%%ESCALATION_RECIPIENTS" VALUE="vp-regulatory@company.com,cco@company.com"/>
+    </JOB>
+
+  </FOLDER>
+</DEFTABLE>

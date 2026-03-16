@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriOptimize - AI Recipe Optimizer</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="hero">
+        <div class="hero-content">
+            <h1 class="logo">
+                <span class="logo-icon">&#127860;</span>
+                NutriOptimize
+            </h1>
+            <p class="tagline">AI-Powered Recipe Optimization for Optimal Nutrition & Taste</p>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Recipe Input Section -->
+        <section class="card recipe-input-section">
+            <h2>&#127859; Your Recipe</h2>
+            <div id="ingredients-list">
+                <div class="ingredient-row">
+                    <input type="text" class="ing-name" placeholder="Ingredient (e.g., chicken breast)" list="ingredient-suggestions">
+                    <input type="number" class="ing-qty" placeholder="Grams" min="1" step="1">
+                    <button class="btn-remove" onclick="removeIngredient(this)" title="Remove">&#10005;</button>
+                </div>
+                <div class="ingredient-row">
+                    <input type="text" class="ing-name" placeholder="Ingredient (e.g., brown rice cooked)" list="ingredient-suggestions">
+                    <input type="number" class="ing-qty" placeholder="Grams" min="1" step="1">
+                    <button class="btn-remove" onclick="removeIngredient(this)" title="Remove">&#10005;</button>
+                </div>
+                <div class="ingredient-row">
+                    <input type="text" class="ing-name" placeholder="Ingredient (e.g., broccoli)" list="ingredient-suggestions">
+                    <input type="number" class="ing-qty" placeholder="Grams" min="1" step="1">
+                    <button class="btn-remove" onclick="removeIngredient(this)" title="Remove">&#10005;</button>
+                </div>
+            </div>
+            <datalist id="ingredient-suggestions"></datalist>
+            <button class="btn-secondary" onclick="addIngredient()">+ Add Ingredient</button>
+
+            <div class="servings-row">
+                <label for="servings">Servings:</label>
+                <input type="number" id="servings" value="4" min="1" max="20">
+            </div>
+        </section>
+
+        <!-- Goals & Restrictions -->
+        <section class="card goals-section">
+            <h2>&#127919; Optimization Goals</h2>
+            <div class="goal-selector">
+                <label class="goal-option selected" data-goal="balanced">
+                    <input type="radio" name="goal" value="balanced" checked>
+                    <span class="goal-icon">&#9878;</span>
+                    <span class="goal-label">Balanced</span>
+                </label>
+                <label class="goal-option" data-goal="weight_loss">
+                    <input type="radio" name="goal" value="weight_loss">
+                    <span class="goal-icon">&#128293;</span>
+                    <span class="goal-label">Weight Loss</span>
+                </label>
+                <label class="goal-option" data-goal="muscle_gain">
+                    <input type="radio" name="goal" value="muscle_gain">
+                    <span class="goal-icon">&#128170;</span>
+                    <span class="goal-label">Muscle Gain</span>
+                </label>
+                <label class="goal-option" data-goal="heart_health">
+                    <input type="radio" name="goal" value="heart_health">
+                    <span class="goal-icon">&#10084;</span>
+                    <span class="goal-label">Heart Health</span>
+                </label>
+                <label class="goal-option" data-goal="high_fiber">
+                    <input type="radio" name="goal" value="high_fiber">
+                    <span class="goal-icon">&#127806;</span>
+                    <span class="goal-label">High Fiber</span>
+                </label>
+                <label class="goal-option" data-goal="iron_rich">
+                    <input type="radio" name="goal" value="iron_rich">
+                    <span class="goal-icon">&#129529;</span>
+                    <span class="goal-label">Iron Rich</span>
+                </label>
+            </div>
+
+            <h3>Dietary Restrictions</h3>
+            <div class="restrictions-grid">
+                <label class="restriction-check">
+                    <input type="checkbox" name="restriction" value="vegan">
+                    <span>Vegan</span>
+                </label>
+                <label class="restriction-check">
+                    <input type="checkbox" name="restriction" value="vegetarian">
+                    <span>Vegetarian</span>
+                </label>
+                <label class="restriction-check">
+                    <input type="checkbox" name="restriction" value="gluten_free">
+                    <span>Gluten-Free</span>
+                </label>
+                <label class="restriction-check">
+                    <input type="checkbox" name="restriction" value="dairy_free">
+                    <span>Dairy-Free</span>
+                </label>
+                <label class="restriction-check">
+                    <input type="checkbox" name="restriction" value="nut_free">
+                    <span>Nut-Free</span>
+                </label>
+                <label class="restriction-check">
+                    <input type="checkbox" name="restriction" value="low_sodium">
+                    <span>Low Sodium</span>
+                </label>
+                <label class="restriction-check">
+                    <input type="checkbox" name="restriction" value="low_carb">
+                    <span>Low Carb</span>
+                </label>
+                <label class="restriction-check">
+                    <input type="checkbox" name="restriction" value="high_protein">
+                    <span>High Protein</span>
+                </label>
+            </div>
+        </section>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="btn-primary btn-analyze" onclick="analyzeRecipe()">
+                &#128270; Analyze Nutrition
+            </button>
+            <button class="btn-primary btn-optimize" onclick="optimizeRecipe()">
+                &#9889; Optimize Recipe
+            </button>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Crunching the numbers...</p>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="hidden">
+            <!-- Nutrition Analysis -->
+            <section class="card results-section" id="analysis-results">
+                <h2>&#128202; Nutritional Analysis (Per Serving)</h2>
+                <div class="nutrition-grid">
+                    <div class="macro-card calories">
+                        <span class="macro-value" id="cal-value">--</span>
+                        <span class="macro-label">Calories</span>
+                    </div>
+                    <div class="macro-card protein">
+                        <span class="macro-value" id="protein-value">--</span>
+                        <span class="macro-label">Protein (g)</span>
+                    </div>
+                    <div class="macro-card carbs">
+                        <span class="macro-value" id="carbs-value">--</span>
+                        <span class="macro-label">Carbs (g)</span>
+                    </div>
+                    <div class="macro-card fat">
+                        <span class="macro-value" id="fat-value">--</span>
+                        <span class="macro-label">Fat (g)</span>
+                    </div>
+                    <div class="macro-card fiber">
+                        <span class="macro-value" id="fiber-value">--</span>
+                        <span class="macro-label">Fiber (g)</span>
+                    </div>
+                </div>
+
+                <!-- Macro Pie Chart -->
+                <div class="charts-row">
+                    <div class="chart-container">
+                        <h3>Macronutrient Breakdown</h3>
+                        <canvas id="macroChart" width="280" height="280"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Micronutrient Completeness (% DRI)</h3>
+                        <canvas id="microChart" width="400" height="280"></canvas>
+                    </div>
+                </div>
+
+                <!-- Completeness Score -->
+                <div class="completeness-section">
+                    <h3>Nutritional Completeness Score</h3>
+                    <div class="score-ring">
+                        <svg viewBox="0 0 120 120">
+                            <circle class="score-bg" cx="60" cy="60" r="50" />
+                            <circle class="score-fill" id="score-circle" cx="60" cy="60" r="50" />
+                            <text class="score-text" id="score-text" x="60" y="60">--</text>
+                            <text class="score-label" x="60" y="78">/100</text>
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Allergen Warnings -->
+                <div id="allergen-section" class="hidden">
+                    <h3>&#9888; Allergen Alert</h3>
+                    <div id="allergen-list" class="allergen-tags"></div>
+                </div>
+
+                <!-- Warnings -->
+                <div id="warnings-section" class="hidden">
+                    <h3>&#128221; Nutritional Notes</h3>
+                    <ul id="warnings-list" class="warnings-list"></ul>
+                </div>
+
+                <!-- Bioavailability -->
+                <div id="bio-section" class="hidden">
+                    <h3>&#129516; Bioavailability Insights</h3>
+                    <ul id="bio-list" class="bio-list"></ul>
+                </div>
+            </section>
+
+            <!-- Optimization Results (Before/After) -->
+            <section class="card results-section hidden" id="optimization-results">
+                <h2>&#9889; Optimization Results</h2>
+
+                <div class="comparison-grid">
+                    <div class="comparison-col original">
+                        <h3>Original</h3>
+                        <div class="comp-stats">
+                            <div class="comp-stat">
+                                <span class="comp-label">Calories</span>
+                                <span class="comp-value" id="orig-cal">--</span>
+                            </div>
+                            <div class="comp-stat">
+                                <span class="comp-label">Protein</span>
+                                <span class="comp-value" id="orig-protein">--</span>
+                            </div>
+                            <div class="comp-stat">
+                                <span class="comp-label">Fiber</span>
+                                <span class="comp-value" id="orig-fiber">--</span>
+                            </div>
+                            <div class="comp-stat">
+                                <span class="comp-label">Taste Score</span>
+                                <span class="comp-value" id="orig-taste">--</span>
+                            </div>
+                            <div class="comp-stat">
+                                <span class="comp-label">Completeness</span>
+                                <span class="comp-value" id="orig-comp">--</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-arrow">&#10148;</div>
+                    <div class="comparison-col optimized">
+                        <h3>Optimized</h3>
+                        <div class="comp-stats">
+                            <div class="comp-stat">
+                                <span class="comp-label">Calories</span>
+                                <span class="comp-value" id="opt-cal">--</span>
+                            </div>
+                            <div class="comp-stat">
+                                <span class="comp-label">Protein</span>
+                                <span class="comp-value" id="opt-protein">--</span>
+                            </div>
+                            <div class="comp-stat">
+                                <span class="comp-label">Fiber</span>
+                                <span class="comp-value" id="opt-fiber">--</span>
+                            </div>
+                            <div class="comp-stat">
+                                <span class="comp-label">Taste Score</span>
+                                <span class="comp-value" id="opt-taste">--</span>
+                            </div>
+                            <div class="comp-stat">
+                                <span class="comp-label">Completeness</span>
+                                <span class="comp-value" id="opt-comp">--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ingredient Changes -->
+                <div id="ingredient-changes">
+                    <h3>Ingredient Adjustments</h3>
+                    <div id="changes-list" class="changes-list"></div>
+                </div>
+
+                <!-- Substitution Suggestions -->
+                <div id="substitution-section" class="hidden">
+                    <h3>&#128260; Suggested Substitutions</h3>
+                    <div id="substitution-list" class="substitution-list"></div>
+                </div>
+
+                <!-- Optimization Notes -->
+                <div id="opt-notes-section" class="hidden">
+                    <h3>&#128161; Optimization Notes</h3>
+                    <ul id="opt-notes-list" class="notes-list"></ul>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <p>NutriOptimize v1.0 | Nutritional data based on USDA FoodData Central reference values</p>
+        <p>For educational purposes. Always consult a healthcare professional for dietary advice.</p>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

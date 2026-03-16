@@ -1,0 +1,789 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  StreamRx - Real-time Pharmaceutical Event Streaming Pipeline
+  Infrastructure stack including MSK, Kinesis, ECS, S3 data lake,
+  DynamoDB state management, and CloudWatch monitoring.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: production
+    AllowedValues: [development, staging, production]
+
+  VpcCidr:
+    Type: String
+    Default: "10.0.0.0/16"
+
+  MSKInstanceType:
+    Type: String
+    Default: kafka.m5.large
+    AllowedValues:
+      - kafka.t3.small
+      - kafka.m5.large
+      - kafka.m5.xlarge
+      - kafka.m5.2xlarge
+
+  MSKBrokerCount:
+    Type: Number
+    Default: 3
+    MinValue: 2
+    MaxValue: 15
+
+  KinesisShardCount:
+    Type: Number
+    Default: 4
+    MinValue: 1
+    MaxValue: 100
+
+  DataLakeRetentionDays:
+    Type: Number
+    Default: 2555  # ~7 years for regulatory compliance
+    MinValue: 365
+
+  ECSDesiredCount:
+    Type: Number
+    Default: 2
+    MinValue: 1
+
+  ContainerImage:
+    Type: String
+    Default: "123456789012.dkr.ecr.us-east-1.amazonaws.com/streamrx:latest"
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # VPC and Networking
+  # ---------------------------------------------------------------------------
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-vpc"
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: "10.0.1.0/24"
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-private-1"
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: "10.0.2.0/24"
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-private-2"
+
+  PrivateSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: "10.0.3.0/24"
+      AvailabilityZone: !Select [2, !GetAZs ""]
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-private-3"
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: "10.0.10.0/24"
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-public-1"
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  NATGatewayEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NATGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      AllocationId: !GetAtt NATGatewayEIP.AllocationId
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      NatGatewayId: !Ref NATGateway
+
+  PrivateSubnet1RouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet2RouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet3RouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet3
+      RouteTableId: !Ref PrivateRouteTable
+
+  # ---------------------------------------------------------------------------
+  # Security Groups
+  # ---------------------------------------------------------------------------
+  MSKSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for MSK brokers
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 9092
+          ToPort: 9092
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
+          Description: Plaintext Kafka from ECS
+        - IpProtocol: tcp
+          FromPort: 9094
+          ToPort: 9094
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
+          Description: TLS Kafka from ECS
+        - IpProtocol: tcp
+          FromPort: 2181
+          ToPort: 2181
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
+          Description: Zookeeper from ECS
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-msk-sg"
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ECS tasks
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: "10.0.0.0/16"
+          Description: FastAPI dashboard
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: "0.0.0.0/0"
+          Description: Allow all outbound
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-ecs-sg"
+
+  RedisSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ElastiCache Redis
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
+          Description: Redis from ECS
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-redis-sg"
+
+  # ---------------------------------------------------------------------------
+  # MSK (Managed Streaming for Apache Kafka)
+  # ---------------------------------------------------------------------------
+  MSKCluster:
+    Type: AWS::MSK::Cluster
+    Properties:
+      ClusterName: !Sub "streamrx-${EnvironmentName}"
+      KafkaVersion: "3.6.0"
+      NumberOfBrokerNodes: !Ref MSKBrokerCount
+      BrokerNodeGroupInfo:
+        InstanceType: !Ref MSKInstanceType
+        ClientSubnets:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+          - !Ref PrivateSubnet3
+        SecurityGroups:
+          - !Ref MSKSecurityGroup
+        StorageInfo:
+          EBSStorageInfo:
+            VolumeSize: 500  # GB
+      EncryptionInfo:
+        EncryptionInTransit:
+          ClientBroker: TLS_PLAINTEXT
+          InCluster: true
+      EnhancedMonitoring: PER_TOPIC_PER_PARTITION
+      OpenMonitoring:
+        Prometheus:
+          JmxExporter:
+            EnabledInBroker: true
+          NodeExporter:
+            EnabledInBroker: true
+      LoggingInfo:
+        BrokerLogs:
+          CloudWatchLogs:
+            Enabled: true
+            LogGroup: !Ref MSKLogGroup
+      Tags:
+        Name: !Sub "streamrx-${EnvironmentName}-msk"
+
+  MSKLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/streamrx/${EnvironmentName}/msk"
+      RetentionInDays: 30
+
+  # ---------------------------------------------------------------------------
+  # Kinesis Data Streams
+  # ---------------------------------------------------------------------------
+  PrescriptionStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub "streamrx-${EnvironmentName}-prescriptions"
+      ShardCount: !Ref KinesisShardCount
+      RetentionPeriodHours: 168  # 7 days
+      StreamEncryption:
+        EncryptionType: KMS
+        KeyId: alias/aws/kinesis
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-prescriptions"
+
+  AdverseEventStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub "streamrx-${EnvironmentName}-adverse-events"
+      ShardCount: 2
+      RetentionPeriodHours: 168
+      StreamEncryption:
+        EncryptionType: KMS
+        KeyId: alias/aws/kinesis
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-adverse-events"
+
+  # ---------------------------------------------------------------------------
+  # Kinesis Data Firehose -> S3
+  # ---------------------------------------------------------------------------
+  FirehoseDeliveryStream:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "streamrx-${EnvironmentName}-s3-delivery"
+      DeliveryStreamType: KinesisStreamAsSource
+      KinesisStreamSourceConfiguration:
+        KinesisStreamARN: !GetAtt PrescriptionStream.Arn
+        RoleARN: !GetAtt FirehoseRole.Arn
+      ExtendedS3DestinationConfiguration:
+        BucketARN: !GetAtt DataLakeBucket.Arn
+        Prefix: "raw/prescriptions/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
+        ErrorOutputPrefix: "errors/prescriptions/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/!{firehose:error-output-type}/"
+        RoleARN: !GetAtt FirehoseRole.Arn
+        BufferingHints:
+          IntervalInSeconds: 300
+          SizeInMBs: 128
+        CompressionFormat: GZIP
+        CloudWatchLoggingOptions:
+          Enabled: true
+          LogGroupName: !Ref FirehoseLogGroup
+          LogStreamName: S3Delivery
+
+  FirehoseLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/streamrx/${EnvironmentName}/firehose"
+      RetentionInDays: 14
+
+  FirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: firehose.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: FirehoseS3Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetBucketLocation
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt DataLakeBucket.Arn
+                  - !Sub "${DataLakeBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - kinesis:DescribeStream
+                  - kinesis:GetShardIterator
+                  - kinesis:GetRecords
+                  - kinesis:ListShards
+                Resource: !GetAtt PrescriptionStream.Arn
+              - Effect: Allow
+                Action:
+                  - logs:PutLogEvents
+                  - logs:CreateLogStream
+                Resource: !GetAtt FirehoseLogGroup.Arn
+
+  # ---------------------------------------------------------------------------
+  # S3 Data Lake
+  # ---------------------------------------------------------------------------
+  DataLakeBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub "streamrx-${EnvironmentName}-data-lake-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: TransitionToIA
+            Status: Enabled
+            Prefix: "raw/"
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 30
+              - StorageClass: GLACIER
+                TransitionInDays: 90
+          - Id: TransitionCompactedToIA
+            Status: Enabled
+            Prefix: "compacted/"
+            Transitions:
+              - StorageClass: STANDARD_IA
+                TransitionInDays: 60
+              - StorageClass: GLACIER
+                TransitionInDays: 180
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+          - Id: ArchiveRetention
+            Status: Enabled
+            Prefix: "archive/"
+            ExpirationInDays: !Ref DataLakeRetentionDays
+          - Id: AbortIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-data-lake"
+
+  # ---------------------------------------------------------------------------
+  # DynamoDB for State Management
+  # ---------------------------------------------------------------------------
+  CheckpointTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "streamrx-${EnvironmentName}-checkpoints"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: checkpoint_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: checkpoint_key
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-checkpoints"
+
+  SignalStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "streamrx-${EnvironmentName}-signal-state"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: signal_key
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: signal_key
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Name
+          Value: !Sub "streamrx-${EnvironmentName}-signal-state"
+
+  # ---------------------------------------------------------------------------
+  # ECS Cluster and Tasks
+  # ---------------------------------------------------------------------------
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "streamrx-${EnvironmentName}"
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      DefaultCapacityProviderStrategy:
+        - CapacityProvider: FARGATE_SPOT
+          Weight: 3
+        - CapacityProvider: FARGATE
+          Weight: 1
+
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: StreamRxTaskPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kinesis:PutRecord
+                  - kinesis:PutRecords
+                  - kinesis:GetRecords
+                  - kinesis:GetShardIterator
+                  - kinesis:DescribeStream
+                  - kinesis:ListShards
+                  - kinesis:SubscribeToShard
+                  - kinesis:RegisterStreamConsumer
+                  - kinesis:DescribeStreamConsumer
+                Resource:
+                  - !GetAtt PrescriptionStream.Arn
+                  - !GetAtt AdverseEventStream.Arn
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:DeleteObject
+                Resource:
+                  - !GetAtt DataLakeBucket.Arn
+                  - !Sub "${DataLakeBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt CheckpointTable.Arn
+                  - !GetAtt SignalStateTable.Arn
+
+  # Prescription Processor Task
+  PrescriptionProcessorTask:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "streamrx-${EnvironmentName}-rx-processor"
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: "1024"
+      Memory: "2048"
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSTaskRole.Arn
+      ContainerDefinitions:
+        - Name: rx-processor
+          Image: !Ref ContainerImage
+          Command: ["python", "-m", "stream_rx.consumers.prescription_processor"]
+          Essential: true
+          Environment:
+            - Name: KAFKA_BOOTSTRAP_SERVERS
+              Value: !Sub "{{resolve:ssm:/streamrx/${EnvironmentName}/msk-bootstrap}}"
+            - Name: ENVIRONMENT
+              Value: !Ref EnvironmentName
+            - Name: LOG_LEVEL
+              Value: INFO
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ProcessorLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: rx-processor
+
+  # Signal Detector Task
+  SignalDetectorTask:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "streamrx-${EnvironmentName}-signal-detector"
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: "2048"
+      Memory: "4096"
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSTaskRole.Arn
+      ContainerDefinitions:
+        - Name: signal-detector
+          Image: !Ref ContainerImage
+          Command: ["python", "-m", "stream_rx.consumers.signal_detector"]
+          Essential: true
+          Environment:
+            - Name: KAFKA_BOOTSTRAP_SERVERS
+              Value: !Sub "{{resolve:ssm:/streamrx/${EnvironmentName}/msk-bootstrap}}"
+            - Name: ENVIRONMENT
+              Value: !Ref EnvironmentName
+            - Name: PRR_THRESHOLD
+              Value: "2.0"
+            - Name: ROR_THRESHOLD
+              Value: "2.0"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ProcessorLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: signal-detector
+
+  # API Dashboard Task
+  APIDashboardTask:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "streamrx-${EnvironmentName}-api"
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: "512"
+      Memory: "1024"
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSTaskRole.Arn
+      ContainerDefinitions:
+        - Name: api-dashboard
+          Image: !Ref ContainerImage
+          Command: ["stream-rx-api"]
+          Essential: true
+          PortMappings:
+            - ContainerPort: 8000
+              Protocol: tcp
+          Environment:
+            - Name: ENVIRONMENT
+              Value: !Ref EnvironmentName
+            - Name: API_HOST
+              Value: "0.0.0.0"
+            - Name: API_PORT
+              Value: "8000"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ProcessorLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: api
+
+  # ECS Services
+  PrescriptionProcessorService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref PrescriptionProcessorTask
+      DesiredCount: !Ref ECSDesiredCount
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+
+  SignalDetectorService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref SignalDetectorTask
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          Subnets:
+            - !Ref PrivateSubnet1
+            - !Ref PrivateSubnet2
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+
+  ProcessorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/streamrx/${EnvironmentName}/processors"
+      RetentionInDays: 30
+
+  # ---------------------------------------------------------------------------
+  # CloudWatch Alarms
+  # ---------------------------------------------------------------------------
+  ConsumerLagAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "streamrx-${EnvironmentName}-consumer-lag-high"
+      AlarmDescription: Consumer lag has exceeded the critical threshold
+      Namespace: StreamRx
+      MetricName: ConsumerLag
+      Dimensions:
+        - Name: Environment
+          Value: !Ref EnvironmentName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 100000
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  ErrorRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "streamrx-${EnvironmentName}-error-rate-high"
+      AlarmDescription: Processing error rate has exceeded 1%
+      Namespace: StreamRx
+      MetricName: ErrorRate
+      Dimensions:
+        - Name: Environment
+          Value: !Ref EnvironmentName
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 0.01
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  SafetySignalAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "streamrx-${EnvironmentName}-safety-signal-critical"
+      AlarmDescription: Critical safety signal detected
+      Namespace: StreamRx
+      MetricName: CriticalSafetySignals
+      Dimensions:
+        - Name: Environment
+          Value: !Ref EnvironmentName
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+
+  MSKDiskUsageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub "streamrx-${EnvironmentName}-msk-disk-usage"
+      AlarmDescription: MSK broker disk usage above 80%
+      Namespace: AWS/Kafka
+      MetricName: KafkaDataLogsDiskUsed
+      Dimensions:
+        - Name: Cluster Name
+          Value: !Sub "streamrx-${EnvironmentName}"
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanThreshold
+
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VpcId"
+
+  MSKClusterArn:
+    Description: MSK Cluster ARN
+    Value: !Ref MSKCluster
+    Export:
+      Name: !Sub "${AWS::StackName}-MSKClusterArn"
+
+  PrescriptionStreamArn:
+    Description: Kinesis Prescription Stream ARN
+    Value: !GetAtt PrescriptionStream.Arn
+
+  AdverseEventStreamArn:
+    Description: Kinesis Adverse Event Stream ARN
+    Value: !GetAtt AdverseEventStream.Arn
+
+  DataLakeBucketName:
+    Description: S3 Data Lake Bucket
+    Value: !Ref DataLakeBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-DataLakeBucket"
+
+  CheckpointTableName:
+    Description: DynamoDB Checkpoint Table
+    Value: !Ref CheckpointTable
+
+  ECSClusterArn:
+    Description: ECS Cluster ARN
+    Value: !GetAtt ECSCluster.Arn

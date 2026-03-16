@@ -1,0 +1,704 @@
+/* BiomarkerDash - Clinical Dashboard Styles
+   Professional medical UI with dark mode support */
+
+:root {
+    /* Light theme */
+    --bg-primary: #f0f2f5;
+    --bg-secondary: #ffffff;
+    --bg-header: #1a365d;
+    --text-primary: #1a202c;
+    --text-secondary: #4a5568;
+    --text-muted: #718096;
+    --border-color: #e2e8f0;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+
+    /* Severity colors */
+    --color-critical: #e53e3e;
+    --color-critical-bg: #fff5f5;
+    --color-high: #dd6b20;
+    --color-high-bg: #fffaf0;
+    --color-medium: #d69e2e;
+    --color-medium-bg: #fffff0;
+    --color-low: #3182ce;
+    --color-low-bg: #ebf8ff;
+    --color-info: #718096;
+    --color-info-bg: #f7fafc;
+
+    /* Status colors */
+    --color-normal: #38a169;
+    --color-warning: #d69e2e;
+    --color-danger: #e53e3e;
+    --color-improving: #38a169;
+    --color-worsening: #e53e3e;
+    --color-stable: #3182ce;
+
+    /* Chart colors */
+    --chart-line: #3182ce;
+    --chart-fill: rgba(49, 130, 206, 0.1);
+    --chart-normal-band: rgba(56, 161, 105, 0.1);
+    --chart-normal-border: rgba(56, 161, 105, 0.4);
+    --chart-anomaly: #e53e3e;
+    --chart-grid: #e2e8f0;
+    --chart-text: #4a5568;
+
+    /* UI */
+    --radius: 8px;
+    --radius-sm: 4px;
+    --transition: 200ms ease;
+}
+
+/* Dark mode */
+body.dark-mode {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-header: #0d1117;
+    --text-primary: #e6edf3;
+    --text-secondary: #8b949e;
+    --text-muted: #6e7681;
+    --border-color: #30363d;
+    --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 4px 6px rgba(0, 0, 0, 0.4);
+
+    --color-critical-bg: #2d1b1b;
+    --color-high-bg: #2d2415;
+    --color-medium-bg: #2d2a15;
+    --color-low-bg: #152436;
+    --color-info-bg: #1a1e24;
+
+    --chart-grid: #30363d;
+    --chart-text: #8b949e;
+    --chart-fill: rgba(49, 130, 206, 0.15);
+    --chart-normal-band: rgba(56, 161, 105, 0.08);
+}
+
+/* Reset and base */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 14px;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.5;
+    min-height: 100vh;
+}
+
+/* Header */
+.app-header {
+    background: var(--bg-header);
+    color: #ffffff;
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow-lg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.header-left {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.app-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.app-subtitle {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
+.header-center {
+    display: flex;
+    align-items: center;
+}
+
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.clock {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+/* Connection status */
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    font-size: 0.85rem;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-danger);
+    transition: background var(--transition);
+}
+
+.connection-status.connected .status-dot {
+    background: var(--color-normal);
+    box-shadow: 0 0 6px var(--color-normal);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    gap: 6px;
+}
+
+.btn:hover {
+    box-shadow: var(--shadow);
+}
+
+.btn-primary {
+    background: #3182ce;
+    color: #fff;
+    border-color: #2b6cb0;
+}
+
+.btn-primary:hover {
+    background: #2b6cb0;
+}
+
+.btn-secondary {
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.2);
+    color: var(--text-primary);
+}
+
+.btn-sm {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+}
+
+.btn-icon {
+    padding: 6px;
+    border: none;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+}
+
+.btn-icon:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-filter {
+    border-radius: 20px;
+    background: transparent;
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+}
+
+.btn-filter.active {
+    background: #3182ce;
+    color: #fff;
+    border-color: #3182ce;
+}
+
+/* Inputs */
+.select-input {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.select-sm {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+}
+
+/* Dashboard layout */
+.dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto auto;
+    gap: 16px;
+    padding: 16px;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+.patient-selector-panel {
+    grid-column: 1 / -1;
+}
+
+.vitals-panel {
+    grid-column: 1 / -1;
+}
+
+.charts-panel {
+    grid-column: 1 / 2;
+    grid-row: 3 / 5;
+}
+
+.alert-panel {
+    grid-column: 2 / 3;
+    grid-row: 3 / 4;
+}
+
+.metrics-panel {
+    grid-column: 2 / 3;
+    grid-row: 4 / 5;
+}
+
+/* Panel */
+.panel {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+}
+
+.panel-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Patient selector */
+.patient-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.patient-info {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.info-grid {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.info-item {
+    font-size: 0.85rem;
+}
+
+.info-label {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* Badge */
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--color-normal);
+    color: #fff;
+}
+
+.badge-danger {
+    background: var(--color-danger);
+}
+
+/* Vital signs grid */
+.vitals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.vital-card {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 12px;
+    text-align: center;
+    transition: all var(--transition);
+    position: relative;
+}
+
+.vital-card.anomaly {
+    border-color: var(--color-danger);
+    box-shadow: 0 0 0 1px var(--color-danger), var(--shadow);
+}
+
+.vital-card.warning {
+    border-color: var(--color-warning);
+}
+
+.vital-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.vital-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    line-height: 1.2;
+    color: var(--text-primary);
+    transition: color var(--transition);
+}
+
+.vital-value.critical {
+    color: var(--color-critical);
+}
+
+.vital-value.high {
+    color: var(--color-high);
+}
+
+.vital-value.normal {
+    color: var(--color-normal);
+}
+
+.vital-unit {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.vital-range {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Chart */
+.chart-controls {
+    display: flex;
+    gap: 8px;
+}
+
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-primary);
+}
+
+.chart-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.trend-info {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+}
+
+.trend-label {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.trend-direction {
+    font-weight: 600;
+}
+
+.trend-direction.improving {
+    color: var(--color-improving);
+}
+
+.trend-direction.worsening {
+    color: var(--color-worsening);
+}
+
+.trend-direction.stable {
+    color: var(--color-stable);
+}
+
+/* Alert panel */
+.alert-filters {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.alert-list {
+    max-height: 400px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.alert-empty {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 24px;
+    font-size: 0.85rem;
+}
+
+.alert-item {
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    border-left: 4px solid;
+    font-size: 0.8rem;
+    animation: slideIn 300ms ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.alert-item.critical {
+    border-left-color: var(--color-critical);
+    background: var(--color-critical-bg);
+}
+
+.alert-item.high {
+    border-left-color: var(--color-high);
+    background: var(--color-high-bg);
+}
+
+.alert-item.medium {
+    border-left-color: var(--color-medium);
+    background: var(--color-medium-bg);
+}
+
+.alert-item.low {
+    border-left-color: var(--color-low);
+    background: var(--color-low-bg);
+}
+
+.alert-item.info {
+    border-left-color: var(--color-info);
+    background: var(--color-info-bg);
+}
+
+.alert-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.alert-title {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.alert-severity {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.alert-severity.critical {
+    background: var(--color-critical);
+    color: #fff;
+}
+
+.alert-severity.high {
+    background: var(--color-high);
+    color: #fff;
+}
+
+.alert-severity.medium {
+    background: var(--color-medium);
+    color: #fff;
+}
+
+.alert-message {
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.alert-time {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    margin-top: 4px;
+}
+
+.alert-actions {
+    margin-top: 6px;
+}
+
+.alert-actions .btn {
+    padding: 2px 8px;
+    font-size: 0.7rem;
+}
+
+/* Metrics */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.metric-item {
+    text-align: center;
+    padding: 12px;
+    background: var(--bg-primary);
+    border-radius: var(--radius-sm);
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    color: var(--text-primary);
+}
+
+.metric-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* Scrollbar styling */
+.alert-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.alert-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.alert-list::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .charts-panel {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .alert-panel {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .metrics-panel {
+        grid-column: 1;
+        grid-row: auto;
+    }
+}
+
+@media (max-width: 600px) {
+    .app-header {
+        padding: 0 12px;
+    }
+
+    .header-left .app-subtitle {
+        display: none;
+    }
+
+    .vitals-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .info-grid {
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+
+/* Animation utilities */
+.fade-in {
+    animation: fadeIn 300ms ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.value-change {
+    animation: valuePop 400ms ease;
+}
+
+@keyframes valuePop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}

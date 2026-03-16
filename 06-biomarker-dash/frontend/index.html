@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BiomarkerDash - Clinical Monitoring Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-left">
+            <h1 class="app-title">BiomarkerDash</h1>
+            <span class="app-subtitle">Real-time Clinical Monitoring</span>
+        </div>
+        <div class="header-center">
+            <div class="connection-status" id="connectionStatus">
+                <span class="status-dot"></span>
+                <span class="status-text">Disconnected</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="btn btn-icon" id="darkModeToggle" title="Toggle dark mode">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+            <span class="clock" id="clock"></span>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <!-- Patient Selector Panel -->
+        <section class="panel patient-selector-panel">
+            <h2 class="panel-title">Patient Selection</h2>
+            <div class="patient-controls">
+                <select id="patientSelect" class="select-input">
+                    <option value="">-- Select Patient --</option>
+                    <option value="P001">P001 - John Doe (M, 62)</option>
+                    <option value="P002">P002 - Jane Smith (F, 45)</option>
+                    <option value="P003">P003 - Robert Brown (M, 78)</option>
+                    <option value="P004">P004 - Maria Garcia (F, 33)</option>
+                    <option value="P005">P005 - David Wilson (M, 55)</option>
+                </select>
+                <button class="btn btn-primary" id="connectBtn">Connect</button>
+                <button class="btn btn-secondary" id="loadDemoBtn">Load Demo Data</button>
+            </div>
+            <div class="patient-info" id="patientInfo" style="display:none;">
+                <div class="info-grid">
+                    <div class="info-item"><span class="info-label">Patient ID:</span> <span id="infoPatientId"></span></div>
+                    <div class="info-item"><span class="info-label">Status:</span> <span id="infoStatus" class="badge">Monitoring</span></div>
+                    <div class="info-item"><span class="info-label">Data Points:</span> <span id="infoDataPoints">0</span></div>
+                    <div class="info-item"><span class="info-label">Last Update:</span> <span id="infoLastUpdate">--</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vital Signs Summary -->
+        <section class="panel vitals-panel">
+            <h2 class="panel-title">Vital Signs</h2>
+            <div class="vitals-grid" id="vitalsGrid">
+                <div class="vital-card" data-biomarker="heart_rate">
+                    <div class="vital-label">Heart Rate</div>
+                    <div class="vital-value" id="vital-heart_rate">--</div>
+                    <div class="vital-unit">bpm</div>
+                    <div class="vital-range">60-100</div>
+                </div>
+                <div class="vital-card" data-biomarker="blood_pressure_sys">
+                    <div class="vital-label">BP Systolic</div>
+                    <div class="vital-value" id="vital-blood_pressure_sys">--</div>
+                    <div class="vital-unit">mmHg</div>
+                    <div class="vital-range">90-120</div>
+                </div>
+                <div class="vital-card" data-biomarker="oxygen_sat">
+                    <div class="vital-label">SpO2</div>
+                    <div class="vital-value" id="vital-oxygen_sat">--</div>
+                    <div class="vital-unit">%</div>
+                    <div class="vital-range">95-100</div>
+                </div>
+                <div class="vital-card" data-biomarker="temperature">
+                    <div class="vital-label">Temperature</div>
+                    <div class="vital-value" id="vital-temperature">--</div>
+                    <div class="vital-unit">&deg;F</div>
+                    <div class="vital-range">97.0-99.5</div>
+                </div>
+                <div class="vital-card" data-biomarker="glucose">
+                    <div class="vital-label">Glucose</div>
+                    <div class="vital-value" id="vital-glucose">--</div>
+                    <div class="vital-unit">mg/dL</div>
+                    <div class="vital-range">70-100</div>
+                </div>
+                <div class="vital-card" data-biomarker="potassium">
+                    <div class="vital-label">Potassium</div>
+                    <div class="vital-value" id="vital-potassium">--</div>
+                    <div class="vital-unit">mEq/L</div>
+                    <div class="vital-range">3.5-5.0</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Area -->
+        <section class="panel charts-panel">
+            <h2 class="panel-title">
+                Biomarker Trends
+                <div class="chart-controls">
+                    <select id="chartBiomarker" class="select-input select-sm">
+                        <option value="heart_rate">Heart Rate</option>
+                        <option value="blood_pressure_sys">BP Systolic</option>
+                        <option value="blood_pressure_dia">BP Diastolic</option>
+                        <option value="oxygen_sat">SpO2</option>
+                        <option value="temperature">Temperature</option>
+                        <option value="glucose">Glucose</option>
+                        <option value="hemoglobin">Hemoglobin</option>
+                        <option value="wbc">WBC</option>
+                        <option value="creatinine">Creatinine</option>
+                        <option value="potassium">Potassium</option>
+                        <option value="sodium">Sodium</option>
+                        <option value="troponin">Troponin</option>
+                    </select>
+                    <select id="chartTimeRange" class="select-input select-sm">
+                        <option value="1">1 Hour</option>
+                        <option value="6">6 Hours</option>
+                        <option value="24" selected>24 Hours</option>
+                        <option value="72">3 Days</option>
+                    </select>
+                </div>
+            </h2>
+            <div class="chart-container">
+                <canvas id="mainChart" width="800" height="300"></canvas>
+            </div>
+            <div class="trend-info" id="trendInfo">
+                <span class="trend-label">Trend:</span>
+                <span class="trend-direction" id="trendDirection">--</span>
+                <span class="trend-label">Rate:</span>
+                <span class="trend-rate" id="trendRate">--</span>
+                <span class="trend-label">Predicted 24h:</span>
+                <span class="trend-predicted" id="trendPredicted">--</span>
+            </div>
+        </section>
+
+        <!-- Alert Panel -->
+        <section class="panel alert-panel">
+            <h2 class="panel-title">
+                Clinical Alerts
+                <span class="alert-count badge badge-danger" id="alertCount">0</span>
+            </h2>
+            <div class="alert-filters">
+                <button class="btn btn-sm btn-filter active" data-severity="all">All</button>
+                <button class="btn btn-sm btn-filter" data-severity="critical">Critical</button>
+                <button class="btn btn-sm btn-filter" data-severity="high">High</button>
+                <button class="btn btn-sm btn-filter" data-severity="medium">Medium</button>
+            </div>
+            <div class="alert-list" id="alertList">
+                <div class="alert-empty">No active alerts</div>
+            </div>
+        </section>
+
+        <!-- Processing Metrics -->
+        <section class="panel metrics-panel">
+            <h2 class="panel-title">System Metrics</h2>
+            <div class="metrics-grid">
+                <div class="metric-item">
+                    <div class="metric-value" id="metricProcessed">0</div>
+                    <div class="metric-label">Processed</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="metricQueue">0</div>
+                    <div class="metric-label">Queue Size</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="metricWS">0</div>
+                    <div class="metric-label">WS Clients</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="metricErrors">0</div>
+                    <div class="metric-label">Errors</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/dashboard.js"></script>
+</body>
+</html>

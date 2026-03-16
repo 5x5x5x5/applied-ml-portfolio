@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PharmaDataVault - Control-M Weekly Data Mart Refresh Job Definitions
+
+  This workflow refreshes the clinical data mart (star schema) from the
+  raw vault. Includes SCD Type 2 dimension management, full fact table
+  reload, and materialized view refresh.
+
+  Schedule: Every Sunday at 04:00 AM
+  Calendar: PHARMA_BUSINESS_CALENDAR
+  SLA: Complete by 08:00 AM Sunday
+  Dependency: Daily ETL must have completed for the prior week
+-->
+<DEFTABLE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <FOLDER DATACENTER="PHARMA_DC" FOLDER_NAME="PHARMA_WEEKLY_MART"
+          FOLDER_ORDER_METHOD="SYSTEM"
+          APPLICATION="PharmaDataVault"
+          SUB_APPLICATION="WeeklyMart"
+          REAL_FOLDER_ID="0"
+          ADJUST_COND="Y"
+          ACTIVE_FROM="20240101"
+          ACTIVE_TILL="20991231"
+          DAYS="7"
+          DAYS_AND_OR="AND"
+          CALENDAR="PHARMA_BUSINESS_CALENDAR"
+          RUN_AS="etl_svc_account"
+          TIMEFROM="0400"
+          TIMETO="0800"
+          PRIORITY="40">
+
+    <!-- ================================================================ -->
+    <!-- Job 1: PRE-REFRESH VALIDATION                                    -->
+    <!-- Verify raw vault integrity before mart refresh                   -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_MART_PRE_VALIDATE"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="WeeklyMart"
+         CMDLINE="/opt/pharma_vault/scripts/unix/daily_etl.sh --phase pre_mart_validate"
+         DESCRIPTION="Validate raw vault completeness before mart refresh"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="1"
+         AUTOARCH="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01"
+         TIMEFROM="0400">
+
+      <!-- Depend on the most recent daily ETL completion -->
+      <INCOND NAME="DAILY_ETL_COMPLETE-PREV" ODATE="PREV" AND_OR="A"/>
+
+      <QUANTITATIVE NAME="PHARMA_DB_CONNECTIONS" QUANT="2"/>
+
+      <ON CODE="0">
+        <DOCOND NAME="MART_PRE_VALID-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="U"
+                DEST="data-eng@company.com"
+                SUBJECT="[ERROR] PharmaVault: Mart pre-validation failed"
+                MESSAGE="Weekly mart pre-validation detected issues in the raw vault. The mart refresh will not proceed. Date: %%ODATE"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 2: REFRESH DIMENSIONS                                        -->
+    <!-- SCD Type 2 processing for all dimension tables                   -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_REFRESH_DIMENSIONS"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="WeeklyMart"
+         CMDLINE="sqlplus etl_user/@pharma_vault @/opt/pharma_vault/sql/etl/mart/refresh_dimensions.sql"
+         DESCRIPTION="Refresh SCD Type 2 dimensions (drug, patient, facility)"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="2"
+         AUTOARCH="Y"
+         CRITICAL="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01">
+
+      <INCOND NAME="MART_PRE_VALID-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+      <QUANTITATIVE NAME="PHARMA_DB_CONNECTIONS" QUANT="3"/>
+      <QUANTITATIVE NAME="PHARMA_ETL_SLOTS" QUANT="1"/>
+
+      <ON CODE="0">
+        <DOCOND NAME="DIMS_REFRESHED-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="U"
+                DEST="data-eng@company.com;pharma-dba@company.com"
+                SUBJECT="[CRITICAL] PharmaVault: Dimension refresh failed"
+                MESSAGE="SCD Type 2 dimension refresh failed. Fact table loads will be blocked. Date: %%ODATE"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 3: LOAD FACT - TRIAL ENROLLMENT                              -->
+    <!-- Full reload of trial enrollment fact table                       -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_LOAD_FACT_ENROLLMENT"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="WeeklyMart"
+         CMDLINE="sqlplus etl_user/@pharma_vault @/opt/pharma_vault/sql/etl/mart/load_fact_enrollment.sql"
+         DESCRIPTION="Load FACT_TRIAL_ENROLLMENT from raw vault"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="1"
+         AUTOARCH="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01">
+
+      <INCOND NAME="DIMS_REFRESHED-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+      <QUANTITATIVE NAME="PHARMA_DB_CONNECTIONS" QUANT="3"/>
+
+      <ON CODE="0">
+        <DOCOND NAME="FACT_ENROLL_LOADED-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="R" DEST="data-eng@company.com"
+                SUBJECT="[ERROR] PharmaVault: Enrollment fact load failed"
+                MESSAGE="FACT_TRIAL_ENROLLMENT load failed. Date: %%ODATE"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 4: LOAD FACT - ADVERSE EVENTS (parallel with enrollment)     -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_LOAD_FACT_AE"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="WeeklyMart"
+         CMDLINE="sqlplus etl_user/@pharma_vault @/opt/pharma_vault/sql/etl/mart/load_fact_ae.sql"
+         DESCRIPTION="Load FACT_ADVERSE_EVENTS from raw vault"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="1"
+         AUTOARCH="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01">
+
+      <INCOND NAME="DIMS_REFRESHED-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+      <QUANTITATIVE NAME="PHARMA_DB_CONNECTIONS" QUANT="3"/>
+
+      <ON CODE="0">
+        <DOCOND NAME="FACT_AE_LOADED-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="R" DEST="data-eng@company.com"
+                SUBJECT="[ERROR] PharmaVault: AE fact load failed"
+                MESSAGE="FACT_ADVERSE_EVENTS load failed. Date: %%ODATE"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 5: REFRESH MATERIALIZED VIEWS                                -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_REFRESH_MVS"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="WeeklyMart"
+         CMDLINE="sqlplus etl_user/@pharma_vault @/opt/pharma_vault/sql/etl/mart/refresh_mvs.sql"
+         DESCRIPTION="Refresh all materialized views in the clinical mart"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="2"
+         AUTOARCH="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01">
+
+      <!-- Wait for both fact tables -->
+      <INCOND NAME="FACT_ENROLL_LOADED-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+      <INCOND NAME="FACT_AE_LOADED-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+      <QUANTITATIVE NAME="PHARMA_DB_CONNECTIONS" QUANT="2"/>
+
+      <ON CODE="0">
+        <DOCOND NAME="MVS_REFRESHED-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="R" DEST="data-eng@company.com"
+                SUBJECT="[ERROR] PharmaVault: MV refresh failed"
+                MESSAGE="Materialized view refresh failed. Reports may show stale data. Date: %%ODATE"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 6: POST-REFRESH VALIDATION                                   -->
+    <!-- Verify mart data quality and completeness                        -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_MART_POST_VALIDATE"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="WeeklyMart"
+         CMDLINE="/opt/pharma_vault/scripts/unix/monitor_etl.sh --check mart_quality"
+         DESCRIPTION="Validate mart data quality after refresh"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="1"
+         AUTOARCH="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01">
+
+      <INCOND NAME="MVS_REFRESHED-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+
+      <ON CODE="0">
+        <DOCOND NAME="WEEKLY_MART_COMPLETE-%%ODATE" ODATE="ODAT" SIGN="+"/>
+        <DOMAIL URGENCY="R"
+                DEST="data-eng@company.com;analytics@company.com"
+                SUBJECT="[OK] PharmaVault: Weekly mart refresh complete"
+                MESSAGE="The weekly clinical data mart refresh has completed successfully for %%ODATE. All dimensions, facts, and materialized views are up to date."/>
+      </ON>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="U"
+                DEST="data-eng@company.com;data-quality@company.com"
+                SUBJECT="[WARNING] PharmaVault: Mart quality issues post-refresh"
+                MESSAGE="Post-refresh validation found quality issues in the clinical data mart. Review DQ report. Date: %%ODATE"/>
+        <DOCOND NAME="WEEKLY_MART_COMPLETE-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+    </JOB>
+
+  </FOLDER>
+</DEFTABLE>

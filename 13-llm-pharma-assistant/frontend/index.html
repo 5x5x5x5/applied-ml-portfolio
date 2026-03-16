@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmAssistAI - Pharmaceutical Knowledge Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Medical Disclaimer Banner -->
+    <div class="disclaimer-banner" id="disclaimerBanner">
+        <div class="disclaimer-content">
+            <span class="disclaimer-icon">&#9888;</span>
+            <p>
+                <strong>Medical Disclaimer:</strong> PharmAssistAI provides pharmaceutical
+                information for educational purposes only. It is not a substitute for
+                professional medical advice. Always consult a qualified healthcare provider.
+            </p>
+            <button class="dismiss-btn" onclick="dismissDisclaimer()" aria-label="Dismiss disclaimer">&#10005;</button>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">&#9764;</span>
+                    <h1>PharmAssistAI</h1>
+                </div>
+                <p class="tagline">Pharmaceutical Knowledge Assistant</p>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-btn active" data-view="chat">
+                    <span class="nav-icon">&#128172;</span>
+                    Chat
+                </button>
+                <button class="nav-btn" data-view="upload">
+                    <span class="nav-icon">&#128196;</span>
+                    Upload Documents
+                </button>
+                <button class="nav-btn" data-view="search">
+                    <span class="nav-icon">&#128269;</span>
+                    Search Knowledge Base
+                </button>
+            </nav>
+
+            <div class="sidebar-info">
+                <h3>Example Questions</h3>
+                <ul class="example-questions">
+                    <li onclick="askExample(this)">What are the common side effects of aspirin?</li>
+                    <li onclick="askExample(this)">What are the drug interactions for metformin?</li>
+                    <li onclick="askExample(this)">What is the recommended dosage for aspirin for pain relief?</li>
+                    <li onclick="askExample(this)">What are the contraindications of metformin?</li>
+                    <li onclick="askExample(this)">Can aspirin and metformin be taken together?</li>
+                </ul>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="connection-status" id="connectionStatus">
+                    <span class="status-dot disconnected"></span>
+                    <span>Disconnected</span>
+                </div>
+                <button class="new-chat-btn" onclick="resetChat()">
+                    + New Conversation
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Chat View -->
+            <div class="view active" id="chatView">
+                <div class="chat-container" id="chatContainer">
+                    <div class="welcome-message" id="welcomeMessage">
+                        <div class="welcome-icon">&#9764;</div>
+                        <h2>Welcome to PharmAssistAI</h2>
+                        <p>
+                            Ask me about pharmaceutical drugs, interactions, dosing guidelines,
+                            adverse effects, and regulatory information. I'll provide cited
+                            answers from the knowledge base.
+                        </p>
+                        <div class="welcome-chips">
+                            <button class="chip" onclick="askExample(this)">
+                                Aspirin side effects
+                            </button>
+                            <button class="chip" onclick="askExample(this)">
+                                Metformin dosing
+                            </button>
+                            <button class="chip" onclick="askExample(this)">
+                                Drug interactions
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <div class="input-wrapper">
+                        <textarea
+                            id="questionInput"
+                            placeholder="Ask a pharmaceutical question..."
+                            rows="1"
+                            maxlength="2000"
+                            aria-label="Ask a pharmaceutical question"
+                        ></textarea>
+                        <button class="send-btn" id="sendBtn" onclick="sendMessage()" aria-label="Send message">
+                            <span>&#9654;</span>
+                        </button>
+                    </div>
+                    <div class="input-footer">
+                        <span class="char-count" id="charCount">0/2000</span>
+                        <span class="powered-by">Powered by Claude &amp; RAG</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload View -->
+            <div class="view" id="uploadView">
+                <div class="upload-container">
+                    <h2>Upload Documents</h2>
+                    <p>Upload pharmaceutical documents (PDF, TXT) to expand the knowledge base.</p>
+
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-icon">&#128196;</div>
+                        <p>Drag and drop files here or click to browse</p>
+                        <p class="upload-hint">Supports PDF and TXT files</p>
+                        <input type="file" id="fileInput" multiple accept=".pdf,.txt,.md" hidden>
+                    </div>
+
+                    <div class="upload-options">
+                        <label>
+                            Collection:
+                            <select id="collectionSelect">
+                                <option value="drug_labels">Drug Labels</option>
+                                <option value="clinical_guidelines">Clinical Guidelines</option>
+                                <option value="regulatory_documents">Regulatory Documents</option>
+                                <option value="drug_interactions">Drug Interactions</option>
+                                <option value="general_pharma" selected>General</option>
+                            </select>
+                        </label>
+                        <label>
+                            Chunk Strategy:
+                            <select id="chunkStrategySelect">
+                                <option value="recursive" selected>Recursive</option>
+                                <option value="semantic">Semantic</option>
+                                <option value="fixed_size">Fixed Size</option>
+                                <option value="section_based">Section Based</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="upload-results" id="uploadResults" hidden>
+                        <h3>Ingestion Results</h3>
+                        <div id="uploadResultContent"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search View -->
+            <div class="view" id="searchView">
+                <div class="search-container">
+                    <h2>Search Knowledge Base</h2>
+                    <div class="search-input-wrapper">
+                        <input
+                            type="text"
+                            id="searchInput"
+                            placeholder="Search documents..."
+                            aria-label="Search documents"
+                        >
+                        <button class="search-btn" onclick="searchDocuments()">Search</button>
+                    </div>
+                    <div class="search-results" id="searchResults"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="chat.js"></script>
+</body>
+</html>

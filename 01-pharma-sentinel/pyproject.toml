@@ -1,0 +1,85 @@
+[project]
+name = "pharma-sentinel"
+version = "1.0.0"
+description = "Drug Adverse Event Detection Pipeline - FDA FAERS data processing with NLP classification"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "PharmaSentinel Team" }]
+
+dependencies = [
+    "fastapi>=0.110.0,<1.0",
+    "uvicorn[standard]>=0.27.0,<1.0",
+    "boto3>=1.34.0,<2.0",
+    "scikit-learn>=1.4.0,<2.0",
+    "spacy>=3.7.0,<4.0",
+    "pandas>=2.2.0,<3.0",
+    "datadog>=0.49.0,<1.0",
+    "ddtrace>=2.6.0,<3.0",
+    "pydantic>=2.6.0,<3.0",
+    "pydantic-settings>=2.1.0,<3.0",
+    "joblib>=1.3.0,<2.0",
+    "lxml>=5.1.0,<6.0",
+    "httpx>=0.27.0,<1.0",
+    "tenacity>=8.2.0,<10.0",
+    "structlog>=24.1.0,<25.0",
+    "redis>=5.0.0,<6.0",
+    "numpy>=1.26.0,<2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0,<9.0",
+    "pytest-asyncio>=0.23.0,<1.0",
+    "pytest-cov>=4.1.0,<6.0",
+    "httpx>=0.27.0,<1.0",
+    "moto[s3,sqs,lambda]>=5.0.0,<6.0",
+    "ruff>=0.3.0,<1.0",
+    "mypy>=1.8.0,<2.0",
+    "boto3-stubs[s3,sqs]>=1.34.0,<2.0",
+    "types-redis>=4.6.0,<5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pharma_sentinel"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "S", "B", "A", "C4", "DTZ", "T20", "ICN", "PIE", "PT", "RSE", "RET", "SIM", "TID", "TCH", "ARG", "PLC", "PLE", "PLR", "PLW", "TRY", "FLY", "PERF", "RUF"]
+ignore = ["S101", "TRY003", "PLR0913"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "ARG001", "ARG002"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "datadog.*",
+    "ddtrace.*",
+    "spacy.*",
+    "sklearn.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "integration: marks tests as integration tests",
+    "slow: marks tests as slow running",
+]

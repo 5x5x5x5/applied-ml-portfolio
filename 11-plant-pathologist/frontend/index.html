@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlantPathologist - Plant Disease Detection</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-icon">&#127807;</span>
+                    <h1>PlantPathologist</h1>
+                </div>
+                <p class="tagline">AI-Powered Plant Disease Detection</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Upload Section -->
+        <section class="upload-section" id="uploadSection">
+            <h2>Analyze a Leaf</h2>
+            <p class="section-description">
+                Upload or capture a photo of a plant leaf to identify diseases
+                and get treatment recommendations.
+            </p>
+
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-placeholder" id="uploadPlaceholder">
+                    <div class="upload-icon">&#128247;</div>
+                    <p class="upload-text">Drag & drop a leaf image here</p>
+                    <p class="upload-subtext">or use the buttons below</p>
+                </div>
+                <img id="previewImage" class="preview-image hidden" alt="Leaf preview">
+            </div>
+
+            <div class="upload-buttons">
+                <label class="btn btn-primary" for="fileInput">
+                    <span class="btn-icon">&#128193;</span> Upload Image
+                </label>
+                <input type="file" id="fileInput" accept="image/jpeg,image/png" hidden>
+
+                <button class="btn btn-secondary" id="cameraBtn">
+                    <span class="btn-icon">&#128247;</span> Take Photo
+                </button>
+            </div>
+
+            <!-- Camera Modal -->
+            <div class="camera-modal hidden" id="cameraModal">
+                <div class="camera-container">
+                    <video id="cameraVideo" autoplay playsinline></video>
+                    <div class="camera-controls">
+                        <button class="btn btn-primary" id="captureBtn">Capture</button>
+                        <button class="btn btn-outline" id="closeCameraBtn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+            <canvas id="cameraCanvas" hidden></canvas>
+
+            <button class="btn btn-accent btn-large" id="diagnoseBtn" disabled>
+                Analyze Leaf
+            </button>
+        </section>
+
+        <!-- Loading -->
+        <section class="loading-section hidden" id="loadingSection">
+            <div class="loader">
+                <div class="leaf-spinner"></div>
+                <p>Analyzing leaf image...</p>
+                <p class="loading-subtext">Running disease classification model</p>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section class="results-section hidden" id="resultsSection">
+            <h2>Diagnosis Results</h2>
+
+            <!-- Primary Result -->
+            <div class="result-card primary-result" id="primaryResult">
+                <div class="result-header">
+                    <div class="result-status" id="resultStatus"></div>
+                    <div class="result-confidence" id="resultConfidence"></div>
+                </div>
+                <h3 id="resultDiseaseName"></h3>
+                <p class="result-species" id="resultSpecies"></p>
+                <p class="result-description" id="resultDescription"></p>
+                <div class="severity-badge" id="severityBadge"></div>
+            </div>
+
+            <!-- Symptoms -->
+            <div class="info-card" id="symptomsCard">
+                <h3>Symptoms</h3>
+                <ul id="symptomsList"></ul>
+            </div>
+
+            <!-- Treatment Tabs -->
+            <div class="treatment-section" id="treatmentSection">
+                <h3>Treatment Recommendations</h3>
+                <div class="tab-bar">
+                    <button class="tab-btn active" data-tab="organic">Organic</button>
+                    <button class="tab-btn" data-tab="chemical">Chemical</button>
+                    <button class="tab-btn" data-tab="cultural">Cultural</button>
+                    <button class="tab-btn" data-tab="prevention">Prevention</button>
+                </div>
+                <div class="tab-content">
+                    <div class="tab-pane active" id="tab-organic">
+                        <ul id="organicList"></ul>
+                    </div>
+                    <div class="tab-pane" id="tab-chemical">
+                        <ul id="chemicalList"></ul>
+                    </div>
+                    <div class="tab-pane" id="tab-cultural">
+                        <ul id="culturalList"></ul>
+                    </div>
+                    <div class="tab-pane" id="tab-prevention">
+                        <ul id="preventionList"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Predictions -->
+            <div class="info-card">
+                <h3>All Predictions</h3>
+                <div id="predictionsList" class="predictions-list"></div>
+            </div>
+
+            <!-- Quality Info -->
+            <div class="info-card collapsible" id="qualityCard">
+                <h3 class="collapsible-header">
+                    Image Quality Details
+                    <span class="collapse-icon">&#9660;</span>
+                </h3>
+                <div class="collapsible-content hidden" id="qualityContent">
+                    <div id="qualityDetails"></div>
+                </div>
+            </div>
+
+            <button class="btn btn-outline btn-large" id="newDiagnosisBtn">
+                Analyze Another Leaf
+            </button>
+        </section>
+
+        <!-- Disease Library -->
+        <section class="library-section">
+            <h2>Supported Diseases</h2>
+            <p class="section-description">
+                PlantPathologist can identify 18 diseases across 5 crop species.
+            </p>
+            <div class="species-grid" id="speciesGrid"></div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <div class="container">
+            <p>
+                <strong>Disclaimer:</strong> PlantPathologist is an educational tool for
+                preliminary disease screening. Always consult a certified plant pathologist
+                or agricultural extension agent for definitive diagnosis and treatment plans.
+            </p>
+            <p class="footer-credit">
+                Built with PyTorch, EfficientNet-B0, and FastAPI
+            </p>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

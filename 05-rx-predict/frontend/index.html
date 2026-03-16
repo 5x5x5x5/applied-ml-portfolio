@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RxPredict - Drug Response Prediction</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">
+                <span class="logo-icon">Rx</span>
+                <h1>RxPredict</h1>
+            </div>
+            <p class="subtitle">Real-time Drug Response Prediction</p>
+            <div class="header-controls">
+                <span id="latency-badge" class="badge badge-success">Latency: --ms</span>
+                <span id="status-badge" class="badge badge-neutral">Status: Checking...</span>
+                <button id="theme-toggle" class="btn-icon" title="Toggle dark mode">
+                    <span class="theme-icon">&#9789;</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="grid-layout">
+            <!-- Prediction Form -->
+            <section class="card form-card">
+                <h2>Patient Information</h2>
+                <form id="prediction-form">
+                    <!-- Demographics -->
+                    <fieldset>
+                        <legend>Demographics</legend>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="age">Age</label>
+                                <input type="number" id="age" name="age" min="0" max="120" value="45" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="sex">Sex</label>
+                                <select id="sex" name="sex">
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="unknown">Unknown</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="weight">Weight (kg)</label>
+                                <input type="number" id="weight" name="weight_kg" min="1" max="500" step="0.1" value="75" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="height">Height (cm)</label>
+                                <input type="number" id="height" name="height_cm" min="30" max="300" step="0.1" value="170" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="ethnicity">Ethnicity</label>
+                            <select id="ethnicity" name="ethnicity">
+                                <option value="caucasian">Caucasian</option>
+                                <option value="african_american">African American</option>
+                                <option value="asian">Asian</option>
+                                <option value="hispanic">Hispanic</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </fieldset>
+
+                    <!-- Drug Information -->
+                    <fieldset>
+                        <legend>Drug Information</legend>
+                        <div class="form-group">
+                            <label for="drug-name">Drug Name</label>
+                            <input type="text" id="drug-name" name="drug_name" placeholder="e.g., Sertraline" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="drug-class">Drug Class</label>
+                                <select id="drug-class" name="drug_class">
+                                    <option value="ssri">SSRI</option>
+                                    <option value="snri">SNRI</option>
+                                    <option value="tca">TCA</option>
+                                    <option value="statin">Statin</option>
+                                    <option value="anticoagulant">Anticoagulant</option>
+                                    <option value="opioid">Opioid</option>
+                                    <option value="nsaid">NSAID</option>
+                                    <option value="beta_blocker">Beta Blocker</option>
+                                    <option value="ace_inhibitor">ACE Inhibitor</option>
+                                    <option value="ppi">PPI</option>
+                                    <option value="immunosuppressant">Immunosuppressant</option>
+                                    <option value="antiepileptic">Antiepileptic</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="dosage">Dosage (mg)</label>
+                                <input type="number" id="dosage" name="dosage_mg" min="0" step="0.1" value="50" required>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <!-- Genetic Profile -->
+                    <fieldset>
+                        <legend>Genetic Profile</legend>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="cyp2d6">CYP2D6</label>
+                                <select id="cyp2d6" name="CYP2D6" multiple>
+                                    <option value="*1" selected>*1 (Normal)</option>
+                                    <option value="*2">*2</option>
+                                    <option value="*4">*4 (Non-functional)</option>
+                                    <option value="*10">*10 (Reduced)</option>
+                                    <option value="*17">*17</option>
+                                    <option value="*41">*41</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="cyp2c19">CYP2C19</label>
+                                <select id="cyp2c19" name="CYP2C19" multiple>
+                                    <option value="*1" selected>*1 (Normal)</option>
+                                    <option value="*2">*2 (Loss of function)</option>
+                                    <option value="*17">*17 (Rapid)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="metabolizer">Metabolizer Phenotype</label>
+                            <select id="metabolizer" name="metabolizer_phenotype">
+                                <option value="poor">Poor Metabolizer</option>
+                                <option value="intermediate">Intermediate Metabolizer</option>
+                                <option value="normal" selected>Normal Metabolizer</option>
+                                <option value="rapid">Rapid Metabolizer</option>
+                                <option value="ultrarapid">Ultrarapid Metabolizer</option>
+                            </select>
+                        </div>
+                    </fieldset>
+
+                    <!-- Medical History -->
+                    <fieldset>
+                        <legend>Medical History</legend>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="num-meds">Current Medications</label>
+                                <input type="number" id="num-meds" name="num_current_medications" min="0" value="2">
+                            </div>
+                            <div class="form-group">
+                                <label for="num-allergies">Known Allergies</label>
+                                <input type="number" id="num-allergies" name="num_allergies" min="0" value="0">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="conditions">Conditions</label>
+                            <div class="checkbox-group">
+                                <label><input type="checkbox" name="conditions" value="diabetes"> Diabetes</label>
+                                <label><input type="checkbox" name="conditions" value="heart_disease"> Heart Disease</label>
+                                <label><input type="checkbox" name="conditions" value="liver_disease"> Liver Disease</label>
+                                <label><input type="checkbox" name="conditions" value="kidney_disease"> Kidney Disease</label>
+                            </div>
+                        </div>
+                    </fieldset>
+
+                    <button type="submit" class="btn btn-primary" id="predict-btn">
+                        Predict Response
+                    </button>
+                </form>
+            </section>
+
+            <!-- Results Panel -->
+            <section class="card results-card">
+                <h2>Prediction Results</h2>
+
+                <!-- Loading indicator -->
+                <div id="loading" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Running prediction...</p>
+                </div>
+
+                <!-- Results Display -->
+                <div id="results" class="hidden">
+                    <div class="result-header">
+                        <div class="result-main">
+                            <span id="result-class" class="result-class"></span>
+                            <span id="result-risk" class="result-risk"></span>
+                        </div>
+                        <div class="latency-display">
+                            <span class="latency-label">Inference</span>
+                            <span id="result-latency" class="latency-value">--ms</span>
+                        </div>
+                    </div>
+
+                    <!-- Confidence Visualization -->
+                    <div class="confidence-section">
+                        <h3>Response Probability</h3>
+                        <div class="confidence-bar-container">
+                            <div id="confidence-bar" class="confidence-bar">
+                                <div id="confidence-fill" class="confidence-fill"></div>
+                                <div id="confidence-range" class="confidence-range"></div>
+                                <span id="confidence-label" class="confidence-label"></span>
+                            </div>
+                        </div>
+                        <div class="confidence-details">
+                            <span>Lower: <strong id="ci-lower">--</strong></span>
+                            <span>Estimate: <strong id="ci-estimate">--</strong></span>
+                            <span>Upper: <strong id="ci-upper">--</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Response Distribution Chart -->
+                    <div class="chart-section">
+                        <h3>Response Distribution</h3>
+                        <canvas id="distribution-chart" width="400" height="200"></canvas>
+                    </div>
+
+                    <!-- Feature Importance -->
+                    <div id="feature-importance-section" class="feature-section hidden">
+                        <h3>Key Factors</h3>
+                        <div id="feature-bars"></div>
+                    </div>
+
+                    <!-- Metadata -->
+                    <div class="meta-info">
+                        <span>Model: <code id="model-version">--</code></span>
+                        <span>Request ID: <code id="request-id">--</code></span>
+                        <span id="cache-status"></span>
+                    </div>
+                </div>
+
+                <!-- Error display -->
+                <div id="error" class="error-display hidden">
+                    <h3>Error</h3>
+                    <p id="error-message"></p>
+                </div>
+            </section>
+        </div>
+
+        <!-- History Section -->
+        <section class="card history-card">
+            <h2>Prediction History</h2>
+            <div class="table-container">
+                <table id="history-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Drug</th>
+                            <th>Predicted Response</th>
+                            <th>Probability</th>
+                            <th>Risk Level</th>
+                            <th>Latency</th>
+                            <th>Cache</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body">
+                        <tr class="empty-row">
+                            <td colspan="7">No predictions yet. Submit a patient form above.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>RxPredict v1.0.0 | Sub-100ms Inference Latency | For research purposes only</p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>

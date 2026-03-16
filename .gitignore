@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+.uv/
+
+# Environment
+.env
+.env.local
+*.pem
+credentials.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model artifacts
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.onnx
+*.pth
+
+# Data
+*.csv
+*.parquet
+*.arrow
+!data/sample_*
+
+# Node
+node_modules/
+package-lock.json
+
+# Logs
+*.log
+logs/
+
+# Ralph loop
+.claude/ralph-loop.local.md

@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Control-M Job Definition: Monthly Audit Trail Archival
+
+  Schedule: 1st of each month at 02:00 EST
+  Purpose: Archives old audit trail records to the archive table,
+           compresses archived data, and validates archive integrity.
+
+  Retention Policy:
+    - Active audit trail: 6 months
+    - Archive: 7 years (regulatory requirement)
+    - Archive older than 7 years is purged with final backup
+
+  Dependencies:
+    - No active batch jobs running
+    - Sufficient tablespace/disk space
+    - Backup of current audit trail completed
+-->
+<DEFTABLE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <FOLDER DATACENTER="PROD_DC" FOLDER_NAME="REGRECORD_MONTHLY"
+          FOLDER_ORDER_METHOD="SYSTEM"
+          APPLICATION="REGRECORD" SUB_APPLICATION="AUDIT_ARCHIVE"
+          RUN_AS="svc_regrecord" ACTIVE_FROM="20250101" ACTIVE_TILL="20991231">
+
+    <!-- ================================================================ -->
+    <!-- Job 1: Pre-archive backup -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_AUDIT_PREBACKUP"
+         DESCRIPTION="Create backup of audit trail before archival"
+         CMDLINE="/opt/regrecord/scripts/unix/backup_records.sh --audit-only"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-db01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="AUDIT_ARCHIVE"
+         MAXWAIT="120" MAXRERUN="2"
+         TIMEFROM="0200" TIMEUNTIL="0400">
+
+      <INCOND NAME="NO_ACTIVE_BATCH_JOBS" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="AUDIT_BACKUP_COMPLETE" ODATE="ODAT" SIGN="+"/>
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOMAIL DEST="dba-team@company.com,regulatory-ops@company.com"
+                SUBJECT="CRITICAL: Audit Trail Backup Failed"
+                MESSAGE="Monthly audit backup failed. Archival will not proceed."/>
+        <DOACTION ACTION="SETERROR"/>
+      </ON>
+
+      <RULE_BASED_CALENDARS>
+        <RULE_BASED_CALENDAR NAME="FIRST_BUSINESS_DAY_OF_MONTH"
+                              DAYS="1" MONTHS="ALL" SHIFT="NEXT_BUSINESS_DAY"/>
+      </RULE_BASED_CALENDARS>
+
+      <QUANTITATIVE NAME="DB_CONNECTIONS" QUANT="2" ONFAIL="WAIT"/>
+
+      <VARIABLE NAME="%%ARCHIVE_DATE" VALUE="%%$ODATE"/>
+      <VARIABLE NAME="%%BACKUP_DIR" VALUE="/backup/regrecord/audit"/>
+      <VARIABLE NAME="%%RETENTION_MONTHS" VALUE="6"/>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 2: Archive old audit records -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_AUDIT_ARCHIVE"
+         DESCRIPTION="Move audit records older than 6 months to archive table"
+         CMDLINE="/opt/regrecord/scripts/unix/audit_archive.sh --archive"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-db01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="AUDIT_ARCHIVE"
+         MAXWAIT="180" MAXRERUN="1"
+         TIMEFROM="0400" TIMEUNTIL="0800">
+
+      <INCOND NAME="AUDIT_BACKUP_COMPLETE" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="AUDIT_ARCHIVE_COMPLETE" ODATE="ODAT" SIGN="+"/>
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOMAIL DEST="dba-team@company.com,regulatory-ops@company.com"
+                SUBJECT="CRITICAL: Audit Trail Archival Failed"
+                MESSAGE="Monthly audit archival failed. Manual intervention required."/>
+        <DOACTION ACTION="SETERROR"/>
+      </ON>
+
+      <ON STMT="*" CODE="0">
+        <DOMAIL DEST="regulatory-ops@company.com"
+                SUBJECT="RegRecord Audit Archive Complete - %%$ODATE"
+                MESSAGE="Audit trail archival completed successfully."
+                ATTACH_SYSOUT="Y"/>
+      </ON>
+
+      <VARIABLE NAME="%%ARCHIVE_CUTOFF_MONTHS" VALUE="6"/>
+      <VARIABLE NAME="%%PURGE_CUTOFF_YEARS" VALUE="7"/>
+      <VARIABLE NAME="%%BATCH_SIZE" VALUE="10000"/>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 3: Validate archive integrity -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_AUDIT_VALIDATE"
+         DESCRIPTION="Validate archive integrity with record count reconciliation"
+         CMDLINE="/opt/regrecord/scripts/unix/audit_archive.sh --validate"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-db01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="AUDIT_ARCHIVE"
+         MAXWAIT="30" MAXRERUN="1"
+         TIMEFROM="0800" TIMEUNTIL="0900">
+
+      <INCOND NAME="AUDIT_ARCHIVE_COMPLETE" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="AUDIT_VALIDATION_COMPLETE" ODATE="ODAT" SIGN="+"/>
+      <OUTCOND NAME="MONTHLY_AUDIT_COMPLETE" ODATE="ODAT" SIGN="+"/>
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOMAIL DEST="dba-team@company.com,regulatory-ops@company.com,compliance-mgr@company.com"
+                SUBJECT="CRITICAL: Audit Archive Validation Failed"
+                MESSAGE="Archive integrity check failed! Data integrity may be compromised. Immediate review required."/>
+        <DOACTION ACTION="SETERROR"/>
+      </ON>
+
+      <VARIABLE NAME="%%TOLERANCE_PCT" VALUE="0.01"/>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 4: Compress archived partitions -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="RR_AUDIT_COMPRESS"
+         DESCRIPTION="Compress old archive partitions for storage optimization"
+         CMDLINE="/opt/regrecord/scripts/unix/audit_archive.sh --compress"
+         TASKTYPE="Job" CYCLIC="N"
+         NODEID="regrecord-db01"
+         RUN_AS="svc_regrecord"
+         APPLICATION="REGRECORD" SUB_APPLICATION="AUDIT_ARCHIVE"
+         MAXWAIT="60" MAXRERUN="1"
+         TIMEFROM="0900" TIMEUNTIL="1000">
+
+      <INCOND NAME="AUDIT_VALIDATION_COMPLETE" ODATE="ODAT" AND_OR="AND"/>
+
+      <OUTCOND NAME="AUDIT_COMPRESSION_COMPLETE" ODATE="ODAT" SIGN="+"/>
+
+      <VARIABLE NAME="%%COMPRESS_OLDER_THAN_MONTHS" VALUE="12"/>
+    </JOB>
+
+  </FOLDER>
+</DEFTABLE>

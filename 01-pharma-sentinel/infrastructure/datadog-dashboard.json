@@ -1,0 +1,527 @@
+{
+  "title": "PharmaSentinel - Adverse Event Detection Pipeline",
+  "description": "Comprehensive monitoring dashboard for the PharmaSentinel drug adverse event detection pipeline. Tracks API performance, prediction distribution, model confidence, pipeline throughput, and error rates.",
+  "layout_type": "ordered",
+  "is_read_only": false,
+  "notify_list": [],
+  "reflow_type": "fixed",
+  "template_variables": [
+    {
+      "name": "env",
+      "prefix": "env",
+      "available_values": ["production", "staging", "dev"],
+      "default": "production"
+    },
+    {
+      "name": "service",
+      "prefix": "service",
+      "available_values": ["pharma-sentinel"],
+      "default": "pharma-sentinel"
+    }
+  ],
+  "widgets": [
+    {
+      "id": 1,
+      "definition": {
+        "title": "Service Health Overview",
+        "type": "group",
+        "background_color": "vivid_blue",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "id": 10,
+            "definition": {
+              "title": "Service Status",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "check_status",
+              "check": "pharma_sentinel.health",
+              "grouping": "cluster",
+              "tags": ["$env", "$service"]
+            },
+            "layout": { "x": 0, "y": 0, "width": 2, "height": 2 }
+          },
+          {
+            "id": 11,
+            "definition": {
+              "title": "Total Predictions (24h)",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "q": "sum:pharma_sentinel.predictions.count{$env,$service}.as_count().rollup(sum, 86400)",
+                  "aggregator": "sum"
+                }
+              ],
+              "autoscale": true,
+              "precision": 0,
+              "custom_unit": ""
+            },
+            "layout": { "x": 2, "y": 0, "width": 2, "height": 2 }
+          },
+          {
+            "id": 12,
+            "definition": {
+              "title": "Error Rate (5m)",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "q": "100 * sum:pharma_sentinel.http.requests.errors.5xx{$env,$service}.as_rate() / sum:pharma_sentinel.http.requests.count{$env,$service}.as_rate()",
+                  "aggregator": "avg",
+                  "conditional_formats": [
+                    { "comparator": ">", "value": 5, "palette": "white_on_red" },
+                    { "comparator": ">", "value": 1, "palette": "white_on_yellow" },
+                    { "comparator": "<=", "value": 1, "palette": "white_on_green" }
+                  ]
+                }
+              ],
+              "autoscale": false,
+              "precision": 2,
+              "custom_unit": "%"
+            },
+            "layout": { "x": 4, "y": 0, "width": 2, "height": 2 }
+          },
+          {
+            "id": 13,
+            "definition": {
+              "title": "Avg Prediction Latency (p95)",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "q": "avg:pharma_sentinel.predictions.latency_ms.95percentile{$env,$service}",
+                  "aggregator": "avg",
+                  "conditional_formats": [
+                    { "comparator": ">", "value": 500, "palette": "white_on_red" },
+                    { "comparator": ">", "value": 200, "palette": "white_on_yellow" },
+                    { "comparator": "<=", "value": 200, "palette": "white_on_green" }
+                  ]
+                }
+              ],
+              "autoscale": false,
+              "precision": 1,
+              "custom_unit": "ms"
+            },
+            "layout": { "x": 6, "y": 0, "width": 2, "height": 2 }
+          }
+        ]
+      },
+      "layout": { "x": 0, "y": 0, "width": 12, "height": 3 }
+    },
+    {
+      "id": 2,
+      "definition": {
+        "title": "Request Latency",
+        "type": "group",
+        "background_color": "vivid_green",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "id": 20,
+            "definition": {
+              "title": "Prediction Latency Distribution (p50 / p95 / p99)",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:pharma_sentinel.predictions.latency_ms.median{$env,$service}",
+                  "display_type": "line",
+                  "style": { "palette": "cool", "line_type": "solid", "line_width": "normal" },
+                  "metadata": [{ "expression": "avg:pharma_sentinel.predictions.latency_ms.median{$env,$service}", "alias_name": "p50" }]
+                },
+                {
+                  "q": "avg:pharma_sentinel.predictions.latency_ms.95percentile{$env,$service}",
+                  "display_type": "line",
+                  "style": { "palette": "warm", "line_type": "solid", "line_width": "normal" },
+                  "metadata": [{ "expression": "avg:pharma_sentinel.predictions.latency_ms.95percentile{$env,$service}", "alias_name": "p95" }]
+                },
+                {
+                  "q": "avg:pharma_sentinel.predictions.latency_ms.99percentile{$env,$service}",
+                  "display_type": "line",
+                  "style": { "palette": "orange", "line_type": "dashed", "line_width": "thin" },
+                  "metadata": [{ "expression": "avg:pharma_sentinel.predictions.latency_ms.99percentile{$env,$service}", "alias_name": "p99" }]
+                }
+              ],
+              "yaxis": { "label": "Latency (ms)", "min": "0" },
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": ["avg", "max", "value"]
+            },
+            "layout": { "x": 0, "y": 0, "width": 8, "height": 3 }
+          },
+          {
+            "id": 21,
+            "definition": {
+              "title": "Batch Prediction Latency",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:pharma_sentinel.batch_predictions.latency_ms{$env,$service}",
+                  "display_type": "line",
+                  "style": { "palette": "purple" }
+                },
+                {
+                  "q": "avg:pharma_sentinel.batch_predictions.per_item_latency_ms{$env,$service}",
+                  "display_type": "line",
+                  "style": { "palette": "grey", "line_type": "dashed" }
+                }
+              ],
+              "yaxis": { "label": "ms", "min": "0" }
+            },
+            "layout": { "x": 8, "y": 0, "width": 4, "height": 3 }
+          }
+        ]
+      },
+      "layout": { "x": 0, "y": 3, "width": 12, "height": 4 }
+    },
+    {
+      "id": 3,
+      "definition": {
+        "title": "Prediction Distribution",
+        "type": "group",
+        "background_color": "vivid_orange",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "id": 30,
+            "definition": {
+              "title": "Severity Distribution (24h)",
+              "title_size": "16",
+              "type": "toplist",
+              "requests": [
+                {
+                  "q": "top(sum:pharma_sentinel.predictions.count{$env,$service} by {severity}.as_count().rollup(sum, 86400), 10, 'sum', 'desc')"
+                }
+              ]
+            },
+            "layout": { "x": 0, "y": 0, "width": 4, "height": 3 }
+          },
+          {
+            "id": 31,
+            "definition": {
+              "title": "Severity Trend Over Time",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "sum:pharma_sentinel.predictions.count{$env,$service,severity:critical}.as_count()",
+                  "display_type": "bars",
+                  "style": { "palette": "red" },
+                  "metadata": [{ "expression": "sum:pharma_sentinel.predictions.count{$env,$service,severity:critical}.as_count()", "alias_name": "Critical" }]
+                },
+                {
+                  "q": "sum:pharma_sentinel.predictions.count{$env,$service,severity:severe}.as_count()",
+                  "display_type": "bars",
+                  "style": { "palette": "orange" },
+                  "metadata": [{ "expression": "sum:pharma_sentinel.predictions.count{$env,$service,severity:severe}.as_count()", "alias_name": "Severe" }]
+                },
+                {
+                  "q": "sum:pharma_sentinel.predictions.count{$env,$service,severity:moderate}.as_count()",
+                  "display_type": "bars",
+                  "style": { "palette": "yellow" },
+                  "metadata": [{ "expression": "sum:pharma_sentinel.predictions.count{$env,$service,severity:moderate}.as_count()", "alias_name": "Moderate" }]
+                },
+                {
+                  "q": "sum:pharma_sentinel.predictions.count{$env,$service,severity:mild}.as_count()",
+                  "display_type": "bars",
+                  "style": { "palette": "green" },
+                  "metadata": [{ "expression": "sum:pharma_sentinel.predictions.count{$env,$service,severity:mild}.as_count()", "alias_name": "Mild" }]
+                }
+              ],
+              "show_legend": true
+            },
+            "layout": { "x": 4, "y": 0, "width": 8, "height": 3 }
+          }
+        ]
+      },
+      "layout": { "x": 0, "y": 7, "width": 12, "height": 4 }
+    },
+    {
+      "id": 4,
+      "definition": {
+        "title": "Error Rates",
+        "type": "group",
+        "background_color": "vivid_red",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "id": 40,
+            "definition": {
+              "title": "HTTP Errors by Status Class",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "sum:pharma_sentinel.http.requests.errors.5xx{$env,$service}.as_rate()",
+                  "display_type": "bars",
+                  "style": { "palette": "red" },
+                  "metadata": [{ "expression": "sum:pharma_sentinel.http.requests.errors.5xx{$env,$service}.as_rate()", "alias_name": "5xx Errors" }]
+                },
+                {
+                  "q": "sum:pharma_sentinel.http.requests.errors.4xx{$env,$service}.as_rate()",
+                  "display_type": "bars",
+                  "style": { "palette": "yellow" },
+                  "metadata": [{ "expression": "sum:pharma_sentinel.http.requests.errors.4xx{$env,$service}.as_rate()", "alias_name": "4xx Errors" }]
+                }
+              ],
+              "yaxis": { "min": "0" }
+            },
+            "layout": { "x": 0, "y": 0, "width": 6, "height": 3 }
+          },
+          {
+            "id": 41,
+            "definition": {
+              "title": "Error Rate by Endpoint",
+              "title_size": "16",
+              "type": "toplist",
+              "requests": [
+                {
+                  "q": "top(sum:pharma_sentinel.http.requests.errors.5xx{$env,$service} by {path}.as_count(), 10, 'sum', 'desc')"
+                }
+              ]
+            },
+            "layout": { "x": 6, "y": 0, "width": 3, "height": 3 }
+          },
+          {
+            "id": 42,
+            "definition": {
+              "title": "Low Confidence Predictions",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "sum:pharma_sentinel.predictions.low_confidence{$env,$service}.as_count()",
+                  "display_type": "bars",
+                  "style": { "palette": "warm" }
+                }
+              ]
+            },
+            "layout": { "x": 9, "y": 0, "width": 3, "height": 3 }
+          }
+        ]
+      },
+      "layout": { "x": 0, "y": 11, "width": 12, "height": 4 }
+    },
+    {
+      "id": 5,
+      "definition": {
+        "title": "Pipeline Throughput",
+        "type": "group",
+        "background_color": "vivid_purple",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "id": 50,
+            "definition": {
+              "title": "Pipeline Throughput (records/sec)",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:pharma_sentinel.pipeline.throughput_rps{$env,$service}",
+                  "display_type": "line",
+                  "style": { "palette": "green", "line_width": "thick" }
+                }
+              ],
+              "yaxis": { "min": "0", "label": "records/sec" }
+            },
+            "layout": { "x": 0, "y": 0, "width": 6, "height": 3 }
+          },
+          {
+            "id": 51,
+            "definition": {
+              "title": "Records Processed per Run",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:pharma_sentinel.pipeline.records_processed{$env,$service}",
+                  "display_type": "bars",
+                  "style": { "palette": "cool" }
+                }
+              ]
+            },
+            "layout": { "x": 6, "y": 0, "width": 3, "height": 3 }
+          },
+          {
+            "id": 52,
+            "definition": {
+              "title": "Pipeline Duration (seconds)",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:pharma_sentinel.pipeline.duration_seconds{$env,$service}",
+                  "display_type": "line",
+                  "style": { "palette": "grey" }
+                }
+              ],
+              "yaxis": { "min": "0" }
+            },
+            "layout": { "x": 9, "y": 0, "width": 3, "height": 3 }
+          }
+        ]
+      },
+      "layout": { "x": 0, "y": 15, "width": 12, "height": 4 }
+    },
+    {
+      "id": 6,
+      "definition": {
+        "title": "Model Confidence Scores",
+        "type": "group",
+        "background_color": "vivid_yellow",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "id": 60,
+            "definition": {
+              "title": "Confidence Score Distribution",
+              "title_size": "16",
+              "type": "distribution",
+              "requests": [
+                {
+                  "q": "avg:pharma_sentinel.predictions.confidence{$env,$service} by {severity}"
+                }
+              ]
+            },
+            "layout": { "x": 0, "y": 0, "width": 4, "height": 3 }
+          },
+          {
+            "id": 61,
+            "definition": {
+              "title": "Average Confidence by Severity",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:pharma_sentinel.predictions.confidence_avg{$env,$service,severity:critical}",
+                  "display_type": "line",
+                  "style": { "palette": "red" },
+                  "metadata": [{ "expression": "avg:pharma_sentinel.predictions.confidence_avg{$env,$service,severity:critical}", "alias_name": "Critical" }]
+                },
+                {
+                  "q": "avg:pharma_sentinel.predictions.confidence_avg{$env,$service,severity:severe}",
+                  "display_type": "line",
+                  "style": { "palette": "orange" },
+                  "metadata": [{ "expression": "avg:pharma_sentinel.predictions.confidence_avg{$env,$service,severity:severe}", "alias_name": "Severe" }]
+                },
+                {
+                  "q": "avg:pharma_sentinel.predictions.confidence_avg{$env,$service,severity:moderate}",
+                  "display_type": "line",
+                  "style": { "palette": "yellow" },
+                  "metadata": [{ "expression": "avg:pharma_sentinel.predictions.confidence_avg{$env,$service,severity:moderate}", "alias_name": "Moderate" }]
+                },
+                {
+                  "q": "avg:pharma_sentinel.predictions.confidence_avg{$env,$service,severity:mild}",
+                  "display_type": "line",
+                  "style": { "palette": "green" },
+                  "metadata": [{ "expression": "avg:pharma_sentinel.predictions.confidence_avg{$env,$service,severity:mild}", "alias_name": "Mild" }]
+                }
+              ],
+              "yaxis": { "min": "0", "max": "1", "label": "Confidence" }
+            },
+            "layout": { "x": 4, "y": 0, "width": 4, "height": 3 }
+          },
+          {
+            "id": 62,
+            "definition": {
+              "title": "Model Accuracy & F1 Score",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:pharma_sentinel.model.accuracy{$env,$service}",
+                  "display_type": "line",
+                  "style": { "palette": "cool" },
+                  "metadata": [{ "expression": "avg:pharma_sentinel.model.accuracy{$env,$service}", "alias_name": "Accuracy" }]
+                },
+                {
+                  "q": "avg:pharma_sentinel.model.f1_score{$env,$service}",
+                  "display_type": "line",
+                  "style": { "palette": "warm" },
+                  "metadata": [{ "expression": "avg:pharma_sentinel.model.f1_score{$env,$service}", "alias_name": "F1 Score" }]
+                }
+              ],
+              "yaxis": { "min": "0", "max": "1" }
+            },
+            "layout": { "x": 8, "y": 0, "width": 4, "height": 3 }
+          }
+        ]
+      },
+      "layout": { "x": 0, "y": 19, "width": 12, "height": 4 }
+    },
+    {
+      "id": 7,
+      "definition": {
+        "title": "Infrastructure Metrics",
+        "type": "group",
+        "background_color": "gray",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "id": 70,
+            "definition": {
+              "title": "ECS CPU Utilization",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:aws.ecs.cpuutilization{service:pharma-sentinel,$env}",
+                  "display_type": "line",
+                  "style": { "palette": "dog_classic" }
+                }
+              ],
+              "yaxis": { "min": "0", "max": "100" },
+              "markers": [
+                { "value": "y = 80", "display_type": "error dashed", "label": "Scale threshold" }
+              ]
+            },
+            "layout": { "x": 0, "y": 0, "width": 4, "height": 3 }
+          },
+          {
+            "id": 71,
+            "definition": {
+              "title": "ECS Memory Utilization",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:aws.ecs.memory_utilization{service:pharma-sentinel,$env}",
+                  "display_type": "line",
+                  "style": { "palette": "cool" }
+                }
+              ],
+              "yaxis": { "min": "0", "max": "100" },
+              "markers": [
+                { "value": "y = 85", "display_type": "error dashed", "label": "Alert threshold" }
+              ]
+            },
+            "layout": { "x": 4, "y": 0, "width": 4, "height": 3 }
+          },
+          {
+            "id": 72,
+            "definition": {
+              "title": "SQS Queue Depth",
+              "title_size": "16",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:aws.sqs.approximate_number_of_messages_visible{queuename:pharma-sentinel*,$env}",
+                  "display_type": "bars",
+                  "style": { "palette": "warm" }
+                }
+              ]
+            },
+            "layout": { "x": 8, "y": 0, "width": 4, "height": 3 }
+          }
+        ]
+      },
+      "layout": { "x": 0, "y": 23, "width": 12, "height": 4 }
+    }
+  ]
+}

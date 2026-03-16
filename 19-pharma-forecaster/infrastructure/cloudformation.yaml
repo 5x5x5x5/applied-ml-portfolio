@@ -1,0 +1,383 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  PharmaForecast infrastructure - Lambda + S3 + SQS + CloudWatch
+  for pharmaceutical demand and adverse event time series forecasting.
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    AllowedValues: [development, staging, production]
+    Description: Deployment environment
+
+  ForecastBucketName:
+    Type: String
+    Default: pharma-forecast-data
+    Description: S3 bucket for forecast data and results
+
+  AlertEmail:
+    Type: String
+    Default: pharma-forecast-alerts@company.com
+    Description: Email for critical forecast alerts
+
+  LambdaMemorySize:
+    Type: Number
+    Default: 1024
+    MinValue: 256
+    MaxValue: 3008
+    Description: Lambda function memory in MB
+
+  LambdaTimeout:
+    Type: Number
+    Default: 900
+    MinValue: 60
+    MaxValue: 900
+    Description: Lambda function timeout in seconds
+
+Resources:
+  # --- S3 Buckets ---
+
+  ForecastDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ForecastBucketName}-${Environment}'
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: ArchiveOldForecasts
+            Status: Enabled
+            Prefix: forecasts/
+            Transitions:
+              - StorageClass: GLACIER
+                TransitionInDays: 90
+            ExpirationInDays: 365
+          - Id: CleanupTempFiles
+            Status: Enabled
+            Prefix: temp/
+            ExpirationInDays: 7
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Project
+          Value: PharmaForecast
+        - Key: Environment
+          Value: !Ref Environment
+
+  ModelArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'pharma-forecast-models-${Environment}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: Project
+          Value: PharmaForecast
+
+  # --- SQS Queues ---
+
+  ForecastRequestQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'pharma-forecast-requests-${Environment}'
+      VisibilityTimeout: 960  # Slightly longer than Lambda timeout
+      MessageRetentionPeriod: 86400  # 1 day
+      ReceiveMessageWaitTimeSeconds: 20  # Long polling
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ForecastDeadLetterQueue.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Project
+          Value: PharmaForecast
+
+  ForecastDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'pharma-forecast-dlq-${Environment}'
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: Project
+          Value: PharmaForecast
+
+  AlertQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub 'pharma-forecast-alerts-${Environment}'
+      VisibilityTimeout: 60
+      MessageRetentionPeriod: 604800  # 7 days
+      Tags:
+        - Key: Project
+          Value: PharmaForecast
+
+  # --- SNS Topics ---
+
+  ForecastAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'pharma-forecast-alerts-${Environment}'
+      Tags:
+        - Key: Project
+          Value: PharmaForecast
+
+  ForecastAlertEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      TopicArn: !Ref ForecastAlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  # --- IAM Roles ---
+
+  ForecastLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'pharma-forecast-lambda-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: ForecastDataAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt ForecastDataBucket.Arn
+                  - !Sub '${ForecastDataBucket.Arn}/*'
+                  - !GetAtt ModelArtifactsBucket.Arn
+                  - !Sub '${ModelArtifactsBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource:
+                  - !GetAtt ForecastRequestQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource:
+                  - !GetAtt AlertQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref ForecastAlertTopic
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+      Tags:
+        - Key: Project
+          Value: PharmaForecast
+
+  # --- Lambda Functions ---
+
+  ForecastGeneratorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'pharma-forecast-generator-${Environment}'
+      Description: Generates demand and adverse event forecasts
+      Runtime: python3.11
+      Handler: lambda_handler.handler
+      Role: !GetAtt ForecastLambdaRole.Arn
+      MemorySize: !Ref LambdaMemorySize
+      Timeout: !Ref LambdaTimeout
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          FORECAST_BUCKET: !Ref ForecastDataBucket
+          MODEL_BUCKET: !Ref ModelArtifactsBucket
+          ALERT_QUEUE_URL: !Ref AlertQueue
+          ALERT_TOPIC_ARN: !Ref ForecastAlertTopic
+          FORECAST_HORIZON: '90'
+          CONFIDENCE_LEVEL: '0.95'
+      Tags:
+        - Key: Project
+          Value: PharmaForecast
+
+  ForecastMonitorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub 'pharma-forecast-monitor-${Environment}'
+      Description: Monitors forecast accuracy and triggers alerts
+      Runtime: python3.11
+      Handler: monitor_handler.handler
+      Role: !GetAtt ForecastLambdaRole.Arn
+      MemorySize: 512
+      Timeout: 300
+      Environment:
+        Variables:
+          ENVIRONMENT: !Ref Environment
+          FORECAST_BUCKET: !Ref ForecastDataBucket
+          ALERT_TOPIC_ARN: !Ref ForecastAlertTopic
+          MAPE_THRESHOLD: '0.15'
+          BIAS_THRESHOLD: '0.10'
+      Tags:
+        - Key: Project
+          Value: PharmaForecast
+
+  # --- SQS Event Source Mapping ---
+
+  ForecastQueueTrigger:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      EventSourceArn: !GetAtt ForecastRequestQueue.Arn
+      FunctionName: !Ref ForecastGeneratorFunction
+      BatchSize: 1
+      MaximumBatchingWindowInSeconds: 0
+      Enabled: true
+
+  # --- CloudWatch Alarms ---
+
+  ForecastErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'pharma-forecast-errors-${Environment}'
+      AlarmDescription: Alert when forecast Lambda errors exceed threshold
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ForecastGeneratorFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 3
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref ForecastAlertTopic
+      TreatMissingData: notBreaching
+
+  ForecastDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'pharma-forecast-duration-${Environment}'
+      AlarmDescription: Alert when forecast Lambda duration is too high
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ForecastGeneratorFunction
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      Threshold: 600000  # 10 minutes in ms
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref ForecastAlertTopic
+
+  DLQDepthAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'pharma-forecast-dlq-depth-${Environment}'
+      AlarmDescription: Alert when DLQ has messages (failed forecasts)
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ForecastDeadLetterQueue.QueueName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref ForecastAlertTopic
+
+  # --- CloudWatch Dashboard ---
+
+  ForecastDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub 'PharmaForecast-${Environment}'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0, "y": 0, "width": 12, "height": 6,
+              "properties": {
+                "title": "Forecast Lambda Invocations",
+                "metrics": [
+                  ["AWS/Lambda", "Invocations", "FunctionName", "${ForecastGeneratorFunction}"],
+                  ["AWS/Lambda", "Errors", "FunctionName", "${ForecastGeneratorFunction}"]
+                ],
+                "period": 300,
+                "stat": "Sum"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12, "y": 0, "width": 12, "height": 6,
+              "properties": {
+                "title": "Forecast Lambda Duration",
+                "metrics": [
+                  ["AWS/Lambda", "Duration", "FunctionName", "${ForecastGeneratorFunction}", {"stat": "Average"}],
+                  ["AWS/Lambda", "Duration", "FunctionName", "${ForecastGeneratorFunction}", {"stat": "p99"}]
+                ],
+                "period": 300
+              }
+            },
+            {
+              "type": "metric",
+              "x": 0, "y": 6, "width": 12, "height": 6,
+              "properties": {
+                "title": "SQS Queue Depth",
+                "metrics": [
+                  ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${ForecastRequestQueue.QueueName}"],
+                  ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "${ForecastDeadLetterQueue.QueueName}"]
+                ],
+                "period": 60
+              }
+            }
+          ]
+        }
+
+Outputs:
+  ForecastBucketArn:
+    Description: ARN of the forecast data S3 bucket
+    Value: !GetAtt ForecastDataBucket.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ForecastBucketArn'
+
+  ForecastQueueUrl:
+    Description: URL of the forecast request SQS queue
+    Value: !Ref ForecastRequestQueue
+    Export:
+      Name: !Sub '${AWS::StackName}-ForecastQueueUrl'
+
+  AlertTopicArn:
+    Description: ARN of the alert SNS topic
+    Value: !Ref ForecastAlertTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-AlertTopicArn'
+
+  ForecastGeneratorArn:
+    Description: ARN of the forecast generator Lambda function
+    Value: !GetAtt ForecastGeneratorFunction.Arn
+
+  ForecastMonitorArn:
+    Description: ARN of the forecast monitor Lambda function
+    Value: !GetAtt ForecastMonitorFunction.Arn

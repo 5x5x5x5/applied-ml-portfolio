@@ -1,0 +1,138 @@
+HIGHLIGHTS OF PRESCRIBING INFORMATION
+These highlights do not include all the information needed to use ASPIRIN safely and effectively.
+See full prescribing information for ASPIRIN.
+
+ASPIRIN (acetylsalicylic acid) tablets, for oral use
+Initial U.S. Approval: 1965
+
+INDICATIONS AND USAGE
+Aspirin is a nonsteroidal anti-inflammatory drug indicated for:
+- Temporary relief of headache, pain and fever associated with cold, toothache, menstrual pain, muscle aches, minor arthritis pain
+- Temporary relief of minor aches and pains of arthritis
+- Cardiovascular event risk reduction in patients with chronic coronary artery disease, including patients with a history of myocardial infarction (MI), unstable angina, or chronic stable angina
+- Risk reduction of recurrent transient ischemic attacks (TIA) or cerebral infarction in patients who have had transient ischemia of the brain due to fibrin platelet emboli
+
+DOSAGE AND ADMINISTRATION
+- For analgesic/antipyretic use: 325 mg to 650 mg every 4 to 6 hours as needed. Do not exceed 4,000 mg in 24 hours.
+- For anti-inflammatory use: Initially 2.4 g to 3.6 g daily in divided doses. Adjust dosage based on clinical response and serum salicylate levels.
+- For cardiovascular indications: 75 mg to 325 mg once daily. The recommended dose for long-term prevention is 81 mg to 100 mg daily.
+- For TIA and cerebral infarction prevention: 50 mg to 325 mg once daily.
+- Administer with food or a full glass of water to reduce GI irritation.
+- Do not crush or chew enteric-coated tablets.
+
+DOSAGE FORMS AND STRENGTHS
+Tablets: 81 mg, 162.5 mg, 325 mg, 500 mg
+Enteric-coated tablets: 81 mg, 325 mg, 500 mg
+Chewable tablets: 81 mg
+
+CONTRAINDICATIONS
+- Known allergy to NSAIDs and known hypersensitivity to aspirin or other salicylates
+- Patients with the syndrome of asthma, rhinitis, and nasal polyps (aspirin-exacerbated respiratory disease)
+- Children or teenagers with viral infections, with or without fever, because of the risk of Reye syndrome
+- Do not use in patients with active peptic ulcer disease or other GI bleeding
+
+WARNINGS AND PRECAUTIONS
+Bleeding Risk: Aspirin increases the risk of bleeding. Risk factors for bleeding include the use of other drugs that increase the risk of bleeding (e.g., anticoagulants, antiplatelet agents, chronic use of NSAIDs).
+
+GI Side Effects: NSAIDs, including aspirin, cause an increased risk of serious GI adverse events including bleeding, ulceration, and perforation of the stomach or intestines, which can be fatal. These events can occur at any time during use and without warning symptoms. Elderly patients and patients with a prior history of peptic ulcer disease and/or GI bleeding are at greater risk.
+
+Peptic Ulcer Disease: Patients with a history of active peptic ulcer disease should avoid using aspirin, which can cause gastric mucosal irritation and bleeding.
+
+Reye Syndrome: Reye syndrome is a rare but serious condition that can affect the brain and liver of children and teenagers recovering from viral infections. Do not give aspirin to children or teenagers under 19 years of age who have viral infections.
+
+Alcohol Warning: Patients who consume three or more alcoholic drinks every day should be counseled about the bleeding risks involved with chronic, heavy alcohol use while taking aspirin.
+
+Coagulation Abnormalities: Even low doses of aspirin can inhibit platelet function leading to an increase in bleeding time. This can adversely affect patients with inherited or acquired bleeding disorders.
+
+Renal Effects: Long-term administration of NSAIDs, including aspirin, can result in renal papillary necrosis and other renal injury. Patients at greatest risk include the elderly, those with impaired renal function, heart failure, liver dysfunction, and those taking diuretics and ACE inhibitors.
+
+Pregnancy: Aspirin should be avoided in the third trimester of pregnancy because it may cause premature closure of the ductus arteriosus.
+
+ADVERSE REACTIONS
+The following is a list of adverse reactions that have been reported with aspirin:
+
+Common (>=1%):
+- Gastrointestinal: Dyspepsia, heartburn, nausea, vomiting, abdominal pain, GI bleeding, gastric erosions
+- Hematologic: Increased bleeding time, decreased platelet aggregation
+- CNS: Dizziness, headache, tinnitus
+
+Uncommon (0.1% to 1%):
+- Gastrointestinal: GI ulceration, gross GI bleeding, perforation
+- Hepatic: Elevated liver enzymes (AST, ALT)
+- Dermatologic: Urticaria, rash
+
+Rare (<0.1%):
+- Anaphylaxis and anaphylactoid reactions
+- Angioedema
+- Bronchospasm
+- Reye syndrome (in children with viral illness)
+- Hearing loss (usually reversible with discontinuation)
+- Hepatotoxicity
+- Renal failure
+- Stevens-Johnson syndrome (very rare)
+- Intracranial hemorrhage
+
+DRUG INTERACTIONS
+Anticoagulants (e.g., warfarin, heparin): Aspirin can increase the anticoagulant effect and risk of bleeding. Monitor INR and bleeding signs closely.
+
+ACE Inhibitors and ARBs: NSAIDs may diminish the antihypertensive effect of ACE inhibitors and ARBs. Monitor blood pressure.
+
+Diuretics: NSAIDs can reduce the natriuretic effect of diuretics. Aspirin can decrease diuretic efficacy.
+
+Methotrexate: Aspirin can inhibit renal clearance of methotrexate, leading to bone marrow toxicity. Avoid concurrent use with high-dose methotrexate.
+
+Other NSAIDs: Concurrent use of aspirin with other NSAIDs increases the risk of GI bleeding. Ibuprofen may interfere with the antiplatelet effect of low-dose aspirin.
+
+SSRIs and SNRIs: Increased risk of GI bleeding when combined with aspirin. Use with caution.
+
+Corticosteroids: Concurrent use increases the risk of GI ulceration and bleeding.
+
+Antidiabetic agents (insulin, sulfonylureas): Aspirin in large doses (>2g/day) may enhance the hypoglycemic effect. Monitor blood glucose.
+
+Valproic acid: Aspirin displaces valproic acid from protein binding, potentially increasing valproic acid toxicity.
+
+Lithium: NSAIDs may increase lithium levels. Monitor lithium levels.
+
+Alcohol: Concurrent use increases the risk of GI bleeding.
+
+USE IN SPECIFIC POPULATIONS
+Pregnancy: Category D (third trimester), Category C (first and second trimesters). Avoid use during the third trimester.
+
+Lactation: Aspirin is excreted in human milk. Caution should be exercised when aspirin is administered to a nursing woman.
+
+Pediatric Use: Do not use aspirin in children or teenagers under 19 years of age who have chickenpox, flu, or flu symptoms due to the risk of Reye syndrome.
+
+Geriatric Use: Elderly patients are at greater risk for serious GI events. Use the lowest effective dose for the shortest duration.
+
+Renal Impairment: Avoid use in patients with advanced renal disease. Use with caution in patients with mild to moderate renal impairment.
+
+Hepatic Impairment: Use with caution. Aspirin should be avoided in patients with severe hepatic insufficiency.
+
+OVERDOSAGE
+Salicylate toxicity may occur following acute ingestion (overdose) or chronic intoxication.
+
+Early signs of salicylate overdose (salicylism): Tinnitus, vertigo, headache, confusion, drowsiness, sweating, hyperventilation, nausea, vomiting.
+
+Severe intoxication may lead to: Hyperthermia, metabolic acidosis, respiratory alkalosis, hypokalemia, hypoglycemia, dehydration, seizures, cerebral edema, coma, cardiovascular collapse, and death.
+
+Treatment: Contact Poison Control (1-800-222-1222). Treatment includes gastric lavage, activated charcoal, correction of acid-base disturbances, and alkaline diuresis. Hemodialysis is effective for severe cases. Maintain adequate urine output.
+
+CLINICAL PHARMACOLOGY
+Mechanism of Action: Aspirin irreversibly inhibits cyclooxygenase-1 (COX-1) and cyclooxygenase-2 (COX-2) enzymes, which decreases the formation of precursors of prostaglandins and thromboxanes from arachidonic acid.
+
+The antiplatelet effect of aspirin is due to irreversible inhibition of platelet COX-1, which prevents the formation of thromboxane A2 (TXA2), a potent platelet aggregator and vasoconstrictor. This antiplatelet effect lasts for the life of the platelet (7-10 days).
+
+Pharmacokinetics:
+- Absorption: Rapidly absorbed from the GI tract. Peak plasma levels in 1-2 hours for immediate-release tablets.
+- Distribution: Distributed to most body tissues and fluids. Protein binding is concentration-dependent (50-90%).
+- Metabolism: Hydrolyzed to salicylic acid (active metabolite) primarily in the GI mucosa and liver. Further metabolized in the liver.
+- Elimination: Renal excretion. Half-life: 15-20 minutes for aspirin; 2-3 hours for salicylate at low doses; up to 15-30 hours at higher anti-inflammatory doses due to saturable metabolism.
+
+HOW SUPPLIED
+Aspirin tablets (81 mg) are supplied in bottles of 120 tablets (NDC 0363-0781-18).
+Aspirin tablets (325 mg) are supplied in bottles of 100 tablets (NDC 0363-0325-01).
+Aspirin tablets (500 mg) are supplied in bottles of 100 tablets (NDC 0363-0500-01).
+
+STORAGE AND HANDLING
+Store at 20-25 degrees C (68-77 degrees F). Protect from moisture. Keep container tightly closed.
+Dispense in a tight, light-resistant container as defined in the USP.

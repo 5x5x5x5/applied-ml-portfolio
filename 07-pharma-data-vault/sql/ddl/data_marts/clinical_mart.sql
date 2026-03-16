@@ -1,0 +1,396 @@
+/*******************************************************************************
+ * PharmaDataVault - Clinical Data Mart (Star Schema)
+ *
+ * Dimensional model built on top of the Data Vault for analytical consumption.
+ * Follows Kimball star schema methodology for optimal query performance.
+ *
+ * Fact tables:
+ *   FACT_TRIAL_ENROLLMENT - grain: one row per patient-trial enrollment event
+ *   FACT_ADVERSE_EVENTS   - grain: one row per adverse event report
+ *
+ * Dimension tables:
+ *   DIM_DRUG, DIM_PATIENT, DIM_TIME, DIM_FACILITY
+ *
+ * Oracle PL/SQL compatible DDL
+ ******************************************************************************/
+
+-- ============================================================================
+-- DIM_TIME (Role-playing dimension)
+-- Pre-populated calendar dimension with pharma-specific attributes.
+-- ============================================================================
+
+CREATE TABLE DIM_TIME (
+    TIME_KEY            NUMBER(8)       NOT NULL,   -- YYYYMMDD
+    FULL_DATE           DATE            NOT NULL,
+    DAY_OF_WEEK         NUMBER(1)       NOT NULL,   -- 1=Monday, 7=Sunday
+    DAY_NAME            VARCHAR2(10)    NOT NULL,
+    DAY_OF_MONTH        NUMBER(2)       NOT NULL,
+    DAY_OF_YEAR         NUMBER(3)       NOT NULL,
+    WEEK_OF_YEAR        NUMBER(2)       NOT NULL,
+    ISO_WEEK            NUMBER(2)       NOT NULL,
+    MONTH_NUMBER        NUMBER(2)       NOT NULL,
+    MONTH_NAME          VARCHAR2(10)    NOT NULL,
+    MONTH_SHORT         VARCHAR2(3)     NOT NULL,
+    QUARTER_NUMBER      NUMBER(1)       NOT NULL,
+    QUARTER_NAME        VARCHAR2(2)     NOT NULL,   -- Q1, Q2, Q3, Q4
+    YEAR_NUMBER         NUMBER(4)       NOT NULL,
+    FISCAL_YEAR         NUMBER(4)       NOT NULL,   -- Pharma fiscal year (may differ)
+    FISCAL_QUARTER      NUMBER(1)       NOT NULL,
+    IS_WEEKEND          VARCHAR2(1)     NOT NULL,   -- Y/N
+    IS_HOLIDAY          VARCHAR2(1)     DEFAULT 'N' NOT NULL,
+    HOLIDAY_NAME        VARCHAR2(50)    NULL,
+    IS_FDA_BUSINESS_DAY VARCHAR2(1)     DEFAULT 'Y' NOT NULL,  -- FDA submission calendar
+    IS_QUARTER_END      VARCHAR2(1)     NOT NULL,
+    IS_MONTH_END        VARCHAR2(1)     NOT NULL,
+    CONSTRAINT PK_DIM_TIME PRIMARY KEY (TIME_KEY)
+)
+TABLESPACE TBS_DATA_MART;
+
+COMMENT ON TABLE DIM_TIME IS 'Calendar dimension with pharma-specific attributes (FDA business days)';
+
+-- ============================================================================
+-- DIM_DRUG (SCD Type 2)
+-- Drug dimension with slowly changing dimension support.
+-- ============================================================================
+
+CREATE TABLE DIM_DRUG (
+    DIM_DRUG_KEY        NUMBER          GENERATED ALWAYS AS IDENTITY NOT NULL,
+    DRUG_VAULT_KEY      RAW(16)         NOT NULL,   -- Reference back to HUB_DRUG
+    DRUG_NDC            VARCHAR2(13)    NOT NULL,
+    DRUG_NAME           VARCHAR2(200)   NOT NULL,
+    GENERIC_NAME        VARCHAR2(200)   NULL,
+    MANUFACTURER        VARCHAR2(200)   NOT NULL,
+    DRUG_FORM           VARCHAR2(50)    NOT NULL,
+    STRENGTH            VARCHAR2(50)    NOT NULL,
+    ROUTE_OF_ADMIN      VARCHAR2(50)    NULL,
+    DEA_SCHEDULE        VARCHAR2(5)     NULL,
+    THERAPEUTIC_CLASS   VARCHAR2(100)   NULL,
+    APPROVAL_DATE       DATE            NULL,
+    NDA_NUMBER          VARCHAR2(20)    NULL,
+    -- SCD Type 2 tracking columns
+    EFFECTIVE_DATE      DATE            NOT NULL,
+    EXPIRATION_DATE     DATE            DEFAULT TO_DATE('9999-12-31', 'YYYY-MM-DD') NOT NULL,
+    IS_CURRENT          VARCHAR2(1)     DEFAULT 'Y' NOT NULL,
+    ROW_HASH            RAW(16)        NOT NULL,    -- For change detection
+    CONSTRAINT PK_DIM_DRUG PRIMARY KEY (DIM_DRUG_KEY),
+    CONSTRAINT CK_DIM_DRUG_CURR CHECK (IS_CURRENT IN ('Y', 'N'))
+)
+TABLESPACE TBS_DATA_MART;
+
+CREATE INDEX IDX_DIM_DRUG_NDC ON DIM_DRUG (DRUG_NDC, IS_CURRENT)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+CREATE INDEX IDX_DIM_DRUG_VAULT ON DIM_DRUG (DRUG_VAULT_KEY, IS_CURRENT)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+CREATE INDEX IDX_DIM_DRUG_CLASS ON DIM_DRUG (THERAPEUTIC_CLASS)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+-- ============================================================================
+-- DIM_PATIENT (SCD Type 2)
+-- Patient dimension with demographic attributes.
+-- ============================================================================
+
+CREATE TABLE DIM_PATIENT (
+    DIM_PATIENT_KEY     NUMBER          GENERATED ALWAYS AS IDENTITY NOT NULL,
+    PATIENT_VAULT_KEY   RAW(16)         NOT NULL,
+    PATIENT_MRN         VARCHAR2(20)    NOT NULL,
+    AGE_GROUP           VARCHAR2(20)    NOT NULL,   -- 18-25, 26-35, etc.
+    SEX                 VARCHAR2(1)     NOT NULL,
+    ETHNICITY           VARCHAR2(50)    NULL,
+    RACE                VARCHAR2(50)    NULL,
+    COUNTRY             VARCHAR2(3)     NULL,
+    STATE_PROVINCE      VARCHAR2(50)    NULL,
+    BMI_CATEGORY        VARCHAR2(20)    NULL,       -- underweight, normal, overweight, obese
+    SMOKING_STATUS      VARCHAR2(20)    NULL,
+    -- SCD Type 2
+    EFFECTIVE_DATE      DATE            NOT NULL,
+    EXPIRATION_DATE     DATE            DEFAULT TO_DATE('9999-12-31', 'YYYY-MM-DD') NOT NULL,
+    IS_CURRENT          VARCHAR2(1)     DEFAULT 'Y' NOT NULL,
+    ROW_HASH            RAW(16)         NOT NULL,
+    CONSTRAINT PK_DIM_PATIENT PRIMARY KEY (DIM_PATIENT_KEY),
+    CONSTRAINT CK_DIM_PAT_CURR CHECK (IS_CURRENT IN ('Y', 'N'))
+)
+TABLESPACE TBS_DATA_MART;
+
+CREATE INDEX IDX_DIM_PAT_MRN ON DIM_PATIENT (PATIENT_MRN, IS_CURRENT)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+CREATE INDEX IDX_DIM_PAT_VAULT ON DIM_PATIENT (PATIENT_VAULT_KEY, IS_CURRENT)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+-- ============================================================================
+-- DIM_FACILITY
+-- Facility dimension (Type 1 SCD - overwrite on change).
+-- ============================================================================
+
+CREATE TABLE DIM_FACILITY (
+    DIM_FACILITY_KEY    NUMBER          GENERATED ALWAYS AS IDENTITY NOT NULL,
+    FACILITY_VAULT_KEY  RAW(16)         NOT NULL,
+    FACILITY_ID         VARCHAR2(20)    NOT NULL,
+    FACILITY_NAME       VARCHAR2(200)   NULL,
+    FACILITY_TYPE       VARCHAR2(50)    NULL,       -- clinical_site, mfg_plant, lab
+    ADDRESS_LINE1       VARCHAR2(200)   NULL,
+    CITY                VARCHAR2(100)   NULL,
+    STATE_PROVINCE      VARCHAR2(50)    NULL,
+    COUNTRY             VARCHAR2(3)     NULL,
+    POSTAL_CODE         VARCHAR2(20)    NULL,
+    IS_FDA_REGISTERED   VARCHAR2(1)     DEFAULT 'N',
+    GMP_CERTIFIED       VARCHAR2(1)     DEFAULT 'N',
+    IS_CURRENT          VARCHAR2(1)     DEFAULT 'Y' NOT NULL,
+    LAST_UPDATED        DATE            NOT NULL,
+    CONSTRAINT PK_DIM_FACILITY PRIMARY KEY (DIM_FACILITY_KEY)
+)
+TABLESPACE TBS_DATA_MART;
+
+CREATE INDEX IDX_DIM_FAC_ID ON DIM_FACILITY (FACILITY_ID, IS_CURRENT)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+-- ============================================================================
+-- FACT_TRIAL_ENROLLMENT
+-- Grain: one row per patient enrollment event in a clinical trial.
+-- Measures: enrollment duration, visit counts, protocol deviations.
+-- ============================================================================
+
+CREATE TABLE FACT_TRIAL_ENROLLMENT (
+    ENROLLMENT_KEY      NUMBER          GENERATED ALWAYS AS IDENTITY NOT NULL,
+    -- Dimension foreign keys
+    DIM_PATIENT_KEY     NUMBER          NOT NULL,
+    DIM_DRUG_KEY        NUMBER          NOT NULL,
+    DIM_FACILITY_KEY    NUMBER          NULL,
+    ENROLL_DATE_KEY     NUMBER(8)       NOT NULL,   -- FK to DIM_TIME (enrollment date)
+    WITHDRAW_DATE_KEY   NUMBER(8)       NULL,       -- FK to DIM_TIME (withdrawal date)
+    -- Degenerate dimensions
+    TRIAL_NCT_ID        VARCHAR2(15)    NOT NULL,
+    TRIAL_PHASE         VARCHAR2(20)    NOT NULL,
+    TRIAL_STATUS        VARCHAR2(30)    NOT NULL,
+    ARM_NAME            VARCHAR2(100)   NULL,       -- Treatment arm
+    -- Measures
+    ENROLLMENT_DURATION_DAYS NUMBER(5)  NULL,       -- Days enrolled
+    TOTAL_VISITS        NUMBER(4)       NULL,
+    COMPLETED_VISITS    NUMBER(4)       NULL,
+    PROTOCOL_DEVIATIONS NUMBER(3)       DEFAULT 0,
+    SCREEN_FAILURE_FLAG VARCHAR2(1)     DEFAULT 'N',
+    COMPLETED_FLAG      VARCHAR2(1)     DEFAULT 'N',
+    WITHDRAWN_FLAG      VARCHAR2(1)     DEFAULT 'N',
+    -- Audit
+    ETL_BATCH_ID        NUMBER          NOT NULL,
+    ETL_LOAD_DATE       TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT PK_FACT_ENROLL PRIMARY KEY (ENROLLMENT_KEY),
+    CONSTRAINT FK_FACT_ENR_PAT FOREIGN KEY (DIM_PATIENT_KEY)
+        REFERENCES DIM_PATIENT (DIM_PATIENT_KEY),
+    CONSTRAINT FK_FACT_ENR_DRUG FOREIGN KEY (DIM_DRUG_KEY)
+        REFERENCES DIM_DRUG (DIM_DRUG_KEY),
+    CONSTRAINT FK_FACT_ENR_FAC FOREIGN KEY (DIM_FACILITY_KEY)
+        REFERENCES DIM_FACILITY (DIM_FACILITY_KEY),
+    CONSTRAINT FK_FACT_ENR_EDATE FOREIGN KEY (ENROLL_DATE_KEY)
+        REFERENCES DIM_TIME (TIME_KEY),
+    CONSTRAINT FK_FACT_ENR_WDATE FOREIGN KEY (WITHDRAW_DATE_KEY)
+        REFERENCES DIM_TIME (TIME_KEY)
+)
+TABLESPACE TBS_DATA_MART
+COMPRESS;
+
+CREATE INDEX IDX_FACT_ENR_PAT ON FACT_TRIAL_ENROLLMENT (DIM_PATIENT_KEY)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+CREATE INDEX IDX_FACT_ENR_DRUG ON FACT_TRIAL_ENROLLMENT (DIM_DRUG_KEY)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+CREATE INDEX IDX_FACT_ENR_DATE ON FACT_TRIAL_ENROLLMENT (ENROLL_DATE_KEY)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+CREATE INDEX IDX_FACT_ENR_TRIAL ON FACT_TRIAL_ENROLLMENT (TRIAL_NCT_ID)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+CREATE BITMAP INDEX BIDX_FACT_ENR_PHASE ON FACT_TRIAL_ENROLLMENT (TRIAL_PHASE)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+-- ============================================================================
+-- FACT_ADVERSE_EVENTS
+-- Grain: one row per adverse event occurrence.
+-- Measures: severity score, duration, time-to-onset.
+-- ============================================================================
+
+CREATE TABLE FACT_ADVERSE_EVENTS (
+    AE_FACT_KEY         NUMBER          GENERATED ALWAYS AS IDENTITY NOT NULL,
+    -- Dimension foreign keys
+    DIM_PATIENT_KEY     NUMBER          NULL,
+    DIM_DRUG_KEY        NUMBER          NOT NULL,
+    DIM_FACILITY_KEY    NUMBER          NULL,
+    ONSET_DATE_KEY      NUMBER(8)       NOT NULL,   -- FK to DIM_TIME
+    REPORT_DATE_KEY     NUMBER(8)       NOT NULL,   -- FK to DIM_TIME
+    RESOLUTION_DATE_KEY NUMBER(8)       NULL,       -- FK to DIM_TIME
+    -- Degenerate dimensions
+    AE_REPORT_ID        VARCHAR2(30)    NOT NULL,
+    AE_TERM             VARCHAR2(250)   NOT NULL,
+    MEDDRA_SOC          VARCHAR2(100)   NULL,
+    SEVERITY            VARCHAR2(20)    NOT NULL,
+    SERIOUSNESS         VARCHAR2(1)     NOT NULL,
+    CAUSALITY           VARCHAR2(30)    NULL,
+    OUTCOME             VARCHAR2(50)    NOT NULL,
+    TRIAL_NCT_ID        VARCHAR2(15)    NULL,       -- If trial-related
+    -- Measures
+    SEVERITY_SCORE      NUMBER(2)       NOT NULL,   -- 1=mild, 2=moderate, 3=severe, 4=life_threat, 5=fatal
+    DURATION_DAYS       NUMBER(5)       NULL,       -- onset to resolution
+    TIME_TO_ONSET_DAYS  NUMBER(5)       NULL,       -- drug start to AE onset
+    REPORT_LAG_DAYS     NUMBER(5)       NULL,       -- onset to report
+    -- Audit
+    ETL_BATCH_ID        NUMBER          NOT NULL,
+    ETL_LOAD_DATE       TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT PK_FACT_AE PRIMARY KEY (AE_FACT_KEY),
+    CONSTRAINT FK_FACT_AE_PAT FOREIGN KEY (DIM_PATIENT_KEY)
+        REFERENCES DIM_PATIENT (DIM_PATIENT_KEY),
+    CONSTRAINT FK_FACT_AE_DRUG FOREIGN KEY (DIM_DRUG_KEY)
+        REFERENCES DIM_DRUG (DIM_DRUG_KEY),
+    CONSTRAINT FK_FACT_AE_ONSET FOREIGN KEY (ONSET_DATE_KEY)
+        REFERENCES DIM_TIME (TIME_KEY),
+    CONSTRAINT FK_FACT_AE_RPT FOREIGN KEY (REPORT_DATE_KEY)
+        REFERENCES DIM_TIME (TIME_KEY)
+)
+TABLESPACE TBS_DATA_MART
+COMPRESS;
+
+CREATE INDEX IDX_FACT_AE_DRUG ON FACT_ADVERSE_EVENTS (DIM_DRUG_KEY)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+CREATE INDEX IDX_FACT_AE_PAT ON FACT_ADVERSE_EVENTS (DIM_PATIENT_KEY)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+CREATE INDEX IDX_FACT_AE_ONSET ON FACT_ADVERSE_EVENTS (ONSET_DATE_KEY)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+CREATE INDEX IDX_FACT_AE_TERM ON FACT_ADVERSE_EVENTS (AE_TERM)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+CREATE BITMAP INDEX BIDX_FACT_AE_SEV ON FACT_ADVERSE_EVENTS (SEVERITY)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+CREATE BITMAP INDEX BIDX_FACT_AE_SER ON FACT_ADVERSE_EVENTS (SERIOUSNESS)
+    TABLESPACE TBS_DATA_MART_IDX;
+
+-- ============================================================================
+-- Materialized Views for Common Queries
+-- ============================================================================
+
+-- MV: Adverse events by drug and severity (refreshed daily)
+CREATE MATERIALIZED VIEW MV_AE_DRUG_SEVERITY
+BUILD DEFERRED
+REFRESH COMPLETE ON DEMAND
+ENABLE QUERY REWRITE
+AS
+SELECT
+    dd.DRUG_NAME,
+    dd.THERAPEUTIC_CLASS,
+    fa.SEVERITY,
+    fa.SERIOUSNESS,
+    dt.YEAR_NUMBER,
+    dt.QUARTER_NAME,
+    COUNT(*)                            AS AE_COUNT,
+    COUNT(DISTINCT fa.DIM_PATIENT_KEY)  AS PATIENT_COUNT,
+    AVG(fa.SEVERITY_SCORE)              AS AVG_SEVERITY_SCORE,
+    AVG(fa.DURATION_DAYS)               AS AVG_DURATION_DAYS,
+    SUM(CASE WHEN fa.OUTCOME = 'fatal' THEN 1 ELSE 0 END) AS FATAL_COUNT
+FROM FACT_ADVERSE_EVENTS fa
+INNER JOIN DIM_DRUG dd
+    ON fa.DIM_DRUG_KEY = dd.DIM_DRUG_KEY
+    AND dd.IS_CURRENT = 'Y'
+INNER JOIN DIM_TIME dt
+    ON fa.ONSET_DATE_KEY = dt.TIME_KEY
+GROUP BY
+    dd.DRUG_NAME,
+    dd.THERAPEUTIC_CLASS,
+    fa.SEVERITY,
+    fa.SERIOUSNESS,
+    dt.YEAR_NUMBER,
+    dt.QUARTER_NAME;
+
+-- MV: Enrollment summary by trial phase and quarter
+CREATE MATERIALIZED VIEW MV_ENROLLMENT_SUMMARY
+BUILD DEFERRED
+REFRESH COMPLETE ON DEMAND
+ENABLE QUERY REWRITE
+AS
+SELECT
+    fe.TRIAL_NCT_ID,
+    fe.TRIAL_PHASE,
+    fe.TRIAL_STATUS,
+    dd.DRUG_NAME,
+    dt.YEAR_NUMBER,
+    dt.QUARTER_NAME,
+    dt.MONTH_NAME,
+    COUNT(*)                            AS ENROLLMENT_COUNT,
+    COUNT(DISTINCT fe.DIM_PATIENT_KEY)  AS UNIQUE_PATIENTS,
+    AVG(fe.ENROLLMENT_DURATION_DAYS)    AS AVG_ENROLLMENT_DAYS,
+    SUM(fe.PROTOCOL_DEVIATIONS)         AS TOTAL_DEVIATIONS,
+    SUM(CASE WHEN fe.COMPLETED_FLAG = 'Y' THEN 1 ELSE 0 END)  AS COMPLETED_COUNT,
+    SUM(CASE WHEN fe.WITHDRAWN_FLAG = 'Y' THEN 1 ELSE 0 END)  AS WITHDRAWN_COUNT,
+    SUM(CASE WHEN fe.SCREEN_FAILURE_FLAG = 'Y' THEN 1 ELSE 0 END) AS SCREEN_FAILURES
+FROM FACT_TRIAL_ENROLLMENT fe
+INNER JOIN DIM_DRUG dd
+    ON fe.DIM_DRUG_KEY = dd.DIM_DRUG_KEY
+    AND dd.IS_CURRENT = 'Y'
+INNER JOIN DIM_TIME dt
+    ON fe.ENROLL_DATE_KEY = dt.TIME_KEY
+GROUP BY
+    fe.TRIAL_NCT_ID,
+    fe.TRIAL_PHASE,
+    fe.TRIAL_STATUS,
+    dd.DRUG_NAME,
+    dt.YEAR_NUMBER,
+    dt.QUARTER_NAME,
+    dt.MONTH_NAME;
+
+-- MV: Drug manufacturing quality dashboard
+CREATE MATERIALIZED VIEW MV_MFG_QUALITY
+BUILD DEFERRED
+REFRESH COMPLETE ON DEMAND
+ENABLE QUERY REWRITE
+AS
+SELECT
+    dd.DRUG_NAME,
+    dd.MANUFACTURER,
+    sm.FACILITY_ID,
+    TO_CHAR(sm.MFG_DATE, 'YYYY')       AS MFG_YEAR,
+    TO_CHAR(sm.MFG_DATE, 'Q')          AS MFG_QUARTER,
+    COUNT(DISTINCT sm.LOT_NUMBER)       AS TOTAL_LOTS,
+    SUM(CASE WHEN sm.QC_STATUS = 'passed' THEN 1 ELSE 0 END) AS PASSED_LOTS,
+    SUM(CASE WHEN sm.QC_STATUS = 'failed' THEN 1 ELSE 0 END) AS FAILED_LOTS,
+    SUM(CASE WHEN sm.DEVIATION_FLAG = 'Y' THEN 1 ELSE 0 END) AS LOTS_WITH_DEVIATIONS,
+    AVG(sm.YIELD_PERCENT)               AS AVG_YIELD,
+    MIN(sm.YIELD_PERCENT)               AS MIN_YIELD,
+    MAX(sm.YIELD_PERCENT)               AS MAX_YIELD
+FROM SAT_DRUG_MANUFACTURING sm
+INNER JOIN HUB_DRUG hd
+    ON sm.DRUG_KEY = hd.DRUG_KEY
+INNER JOIN DIM_DRUG dd
+    ON hd.DRUG_KEY = dd.DRUG_VAULT_KEY
+    AND dd.IS_CURRENT = 'Y'
+WHERE sm.LOAD_END_DATE = TO_TIMESTAMP('9999-12-31 23:59:59', 'YYYY-MM-DD HH24:MI:SS')
+GROUP BY
+    dd.DRUG_NAME,
+    dd.MANUFACTURER,
+    sm.FACILITY_ID,
+    TO_CHAR(sm.MFG_DATE, 'YYYY'),
+    TO_CHAR(sm.MFG_DATE, 'Q');
+
+-- ============================================================================
+-- Grants
+-- ============================================================================
+
+GRANT SELECT ON DIM_TIME TO ROLE_ANALYST;
+GRANT SELECT ON DIM_DRUG TO ROLE_ANALYST;
+GRANT SELECT ON DIM_PATIENT TO ROLE_ANALYST;
+GRANT SELECT ON DIM_FACILITY TO ROLE_ANALYST;
+GRANT SELECT ON FACT_TRIAL_ENROLLMENT TO ROLE_ANALYST;
+GRANT SELECT ON FACT_ADVERSE_EVENTS TO ROLE_ANALYST;
+GRANT SELECT ON MV_AE_DRUG_SEVERITY TO ROLE_ANALYST;
+GRANT SELECT ON MV_ENROLLMENT_SUMMARY TO ROLE_ANALYST;
+GRANT SELECT ON MV_MFG_QUALITY TO ROLE_ANALYST;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON DIM_TIME TO ROLE_ETL;
+GRANT SELECT, INSERT, UPDATE, DELETE ON DIM_DRUG TO ROLE_ETL;
+GRANT SELECT, INSERT, UPDATE, DELETE ON DIM_PATIENT TO ROLE_ETL;
+GRANT SELECT, INSERT, UPDATE, DELETE ON DIM_FACILITY TO ROLE_ETL;
+GRANT SELECT, INSERT, DELETE ON FACT_TRIAL_ENROLLMENT TO ROLE_ETL;
+GRANT SELECT, INSERT, DELETE ON FACT_ADVERSE_EVENTS TO ROLE_ETL;

@@ -1,0 +1,411 @@
+{
+  "Comment": "DrugInteractionML Training and Deployment Pipeline",
+  "StartAt": "DataExtraction",
+  "States": {
+    "DataExtraction": {
+      "Type": "Parallel",
+      "Comment": "Extract molecular and patient features in parallel",
+      "Branches": [
+        {
+          "StartAt": "ExtractMolecularFeatures",
+          "States": {
+            "ExtractMolecularFeatures": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${ExtractionLambdaArn}",
+                "Payload": {
+                  "extraction_type": "molecular",
+                  "input.$": "$.molecular_config"
+                }
+              },
+              "ResultPath": "$.molecular_features",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.TooManyRequestsException",
+                    "States.TaskFailed"
+                  ],
+                  "IntervalSeconds": 30,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.error",
+                  "Next": "MolecularExtractionFailed"
+                }
+              ],
+              "End": true
+            },
+            "MolecularExtractionFailed": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "${SNSTopicArn}",
+                "Subject": "DrugInteractionML: Molecular Extraction Failed",
+                "Message.$": "States.Format('Molecular feature extraction failed: {}', $.error.Cause)"
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "ExtractSnowflakeFeatures",
+          "States": {
+            "ExtractSnowflakeFeatures": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${ExtractionLambdaArn}",
+                "Payload": {
+                  "extraction_type": "snowflake",
+                  "input.$": "$.snowflake_config"
+                }
+              },
+              "ResultPath": "$.snowflake_features",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "States.TaskFailed"
+                  ],
+                  "IntervalSeconds": 60,
+                  "MaxAttempts": 2,
+                  "BackoffRate": 2.0
+                }
+              ],
+              "Catch": [
+                {
+                  "ErrorEquals": ["States.ALL"],
+                  "ResultPath": "$.error",
+                  "Next": "SnowflakeExtractionFailed"
+                }
+              ],
+              "End": true
+            },
+            "SnowflakeExtractionFailed": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::sns:publish",
+              "Parameters": {
+                "TopicArn": "${SNSTopicArn}",
+                "Subject": "DrugInteractionML: Snowflake Extraction Failed",
+                "Message.$": "States.Format('Snowflake feature extraction failed: {}', $.error.Cause)"
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "ResultPath": "$.extraction_results",
+      "Next": "FeatureEngineering",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "PipelineFailedNotification"
+        }
+      ]
+    },
+
+    "FeatureEngineering": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${FeatureEngineeringLambdaArn}",
+        "Payload": {
+          "extraction_results.$": "$.extraction_results",
+          "feature_config.$": "$.feature_config"
+        }
+      },
+      "ResultPath": "$.engineered_features",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 30,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "PipelineFailedNotification"
+        }
+      ],
+      "Next": "ValidateFeatures"
+    },
+
+    "ValidateFeatures": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.engineered_features.Payload.validation_passed",
+          "BooleanEquals": true,
+          "Next": "ModelTraining"
+        },
+        {
+          "Variable": "$.engineered_features.Payload.sample_count",
+          "NumericLessThan": 100,
+          "Next": "InsufficientDataNotification"
+        }
+      ],
+      "Default": "PipelineFailedNotification"
+    },
+
+    "InsufficientDataNotification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${SNSTopicArn}",
+        "Subject": "DrugInteractionML: Insufficient Training Data",
+        "Message": "Feature validation failed due to insufficient samples. Pipeline halted."
+      },
+      "Next": "PipelineFailed"
+    },
+
+    "ModelTraining": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sagemaker:createTrainingJob.sync",
+      "Parameters": {
+        "TrainingJobName.$": "States.Format('drug-interaction-{}', $$.Execution.StartTime)",
+        "AlgorithmSpecification": {
+          "TrainingImage.$": "$.training_config.image_uri",
+          "TrainingInputMode": "File"
+        },
+        "RoleArn.$": "$.training_config.role_arn",
+        "InputDataConfig": [
+          {
+            "ChannelName": "train",
+            "DataSource": {
+              "S3DataSource": {
+                "S3DataType": "S3Prefix",
+                "S3Uri.$": "$.engineered_features.Payload.train_s3_uri",
+                "S3DataDistributionType": "FullyReplicated"
+              }
+            },
+            "ContentType": "text/csv"
+          },
+          {
+            "ChannelName": "validation",
+            "DataSource": {
+              "S3DataSource": {
+                "S3DataType": "S3Prefix",
+                "S3Uri.$": "$.engineered_features.Payload.val_s3_uri",
+                "S3DataDistributionType": "FullyReplicated"
+              }
+            },
+            "ContentType": "text/csv"
+          }
+        ],
+        "OutputDataConfig": {
+          "S3OutputPath.$": "$.training_config.output_s3_uri"
+        },
+        "ResourceConfig": {
+          "InstanceCount": 1,
+          "InstanceType": "ml.m5.xlarge",
+          "VolumeSizeInGB": 50
+        },
+        "StoppingCondition": {
+          "MaxRuntimeInSeconds": 7200
+        },
+        "HyperParameters.$": "$.training_config.hyperparameters"
+      },
+      "ResultPath": "$.training_result",
+      "Retry": [
+        {
+          "ErrorEquals": ["SageMaker.AmazonSageMakerException"],
+          "IntervalSeconds": 120,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "TrainingFailedNotification"
+        }
+      ],
+      "Next": "ModelEvaluation"
+    },
+
+    "TrainingFailedNotification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${SNSTopicArn}",
+        "Subject": "DrugInteractionML: Training Job Failed",
+        "Message.$": "States.Format('SageMaker training job failed: {}', $.error.Cause)"
+      },
+      "Next": "PipelineFailed"
+    },
+
+    "ModelEvaluation": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${EvaluationLambdaArn}",
+        "Payload": {
+          "training_result.$": "$.training_result",
+          "model_artifact.$": "$.training_result.ModelArtifacts.S3ModelArtifacts"
+        }
+      },
+      "ResultPath": "$.evaluation_result",
+      "Next": "DeploymentDecision"
+    },
+
+    "DeploymentDecision": {
+      "Type": "Choice",
+      "Comment": "Deploy only if model meets performance threshold",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.evaluation_result.Payload.f1_macro",
+              "NumericGreaterThanEquals": 0.80
+            },
+            {
+              "Variable": "$.evaluation_result.Payload.is_improvement",
+              "BooleanEquals": true
+            }
+          ],
+          "Next": "DeployModel"
+        },
+        {
+          "Variable": "$.evaluation_result.Payload.f1_macro",
+          "NumericLessThan": 0.80,
+          "Next": "BelowThresholdNotification"
+        }
+      ],
+      "Default": "NoImprovementNotification"
+    },
+
+    "BelowThresholdNotification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${SNSTopicArn}",
+        "Subject": "DrugInteractionML: Model Below Threshold",
+        "Message.$": "States.Format('Model f1={} below threshold', $.evaluation_result.Payload.f1_macro)"
+      },
+      "Next": "PipelineComplete"
+    },
+
+    "NoImprovementNotification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${SNSTopicArn}",
+        "Subject": "DrugInteractionML: No Improvement Over Production",
+        "Message": "New model does not improve over the current production model."
+      },
+      "Next": "PipelineComplete"
+    },
+
+    "DeployModel": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${DeploymentLambdaArn}",
+        "Payload": {
+          "model_artifact.$": "$.training_result.ModelArtifacts.S3ModelArtifacts",
+          "endpoint_name": "drug-interaction-endpoint",
+          "deployment_config.$": "$.deployment_config"
+        }
+      },
+      "ResultPath": "$.deployment_result",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.TaskFailed"],
+          "IntervalSeconds": 60,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "DeploymentRollback"
+        }
+      ],
+      "Next": "SetupMonitoring"
+    },
+
+    "DeploymentRollback": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${RollbackLambdaArn}",
+        "Payload": {
+          "endpoint_name": "drug-interaction-endpoint",
+          "error.$": "$.error"
+        }
+      },
+      "ResultPath": "$.rollback_result",
+      "Next": "DeploymentFailedNotification"
+    },
+
+    "DeploymentFailedNotification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${SNSTopicArn}",
+        "Subject": "DrugInteractionML: Deployment Failed - Rolled Back",
+        "Message.$": "States.Format('Deployment failed and was rolled back: {}', $.error.Cause)"
+      },
+      "Next": "PipelineFailed"
+    },
+
+    "SetupMonitoring": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${MonitoringLambdaArn}",
+        "Payload": {
+          "endpoint_name": "drug-interaction-endpoint",
+          "baseline_s3_uri.$": "$.engineered_features.Payload.baseline_s3_uri"
+        }
+      },
+      "ResultPath": "$.monitoring_result",
+      "Next": "DeploymentSuccessNotification"
+    },
+
+    "DeploymentSuccessNotification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${SNSTopicArn}",
+        "Subject": "DrugInteractionML: Deployment Successful",
+        "Message.$": "States.Format('Model deployed successfully. Endpoint: drug-interaction-endpoint. F1: {}', $.evaluation_result.Payload.f1_macro)"
+      },
+      "Next": "PipelineComplete"
+    },
+
+    "PipelineComplete": {
+      "Type": "Succeed"
+    },
+
+    "PipelineFailed": {
+      "Type": "Fail",
+      "Error": "PipelineError",
+      "Cause": "Pipeline failed. Check SNS notifications for details."
+    },
+
+    "PipelineFailedNotification": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${SNSTopicArn}",
+        "Subject": "DrugInteractionML: Pipeline Failed",
+        "Message.$": "States.Format('Pipeline execution failed: {}', $.error.Cause)"
+      },
+      "Next": "PipelineFailed"
+    }
+  }
+}

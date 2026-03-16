@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Control-M Job Definition: Weekly FAERS Data Load
+
+  Schedule: Every Sunday at 04:00 AM EST
+  Source: FDA quarterly FAERS files (downloaded weekly, processed incrementally)
+
+  Flow:
+    1. Pre-condition: Check FAERS files downloaded from FDA
+    2. Step 1: Validate FAERS file structures
+    3. Step 2: Load DEMO (demographics) file to staging
+    4. Step 3: Load DRUG file to staging (parallel with DEMO)
+    5. Step 4: Load REAC (reactions) file to staging (parallel)
+    6. Step 5: Load OUTC (outcomes) file to staging (parallel)
+    7. Step 6: Cross-reference and transform (after all loads)
+    8. Step 7: Compute disproportionality signals
+    9. Step 8: Data quality checks
+    10. Step 9: Generate safety signal report
+    11. Post-condition: Archive, notify pharmacovigilance team
+
+  Dependencies:
+    - Requires Drug Master pipeline to have run (dim_drug available)
+    - FAERS files from https://fis.fda.gov/extensions/FPD-QDE-FAERS/FPD-QDE-FAERS.html
+-->
+<DEFTABLE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <FOLDER
+    DATACENTER="PHARMA_DC"
+    FOLDER_NAME="PHARMA_WEEKLY_FAERS"
+    DESCRIPTION="Weekly FAERS Adverse Event Data Load and Signal Detection"
+    APPLICATION="PHARMAFLOW"
+    SUB_APPLICATION="PHARMACOVIGILANCE"
+    RUN_AS="svc_pharmaflow"
+    ACTIVE_FROM="20260101"
+    ACTIVE_TILL="20991231"
+    DAYS_ORDER_METHOD="ORDER"
+    DAYS="7"
+    WEEKDAYS="SUN"
+    TIMEFROM="0400"
+    TIMETO="1000"
+    TIMEZONE="US/Eastern"
+    ADJUST_COND="YES"
+  >
+
+    <!-- ================================================================ -->
+    <!-- PRE-CONDITION: FAERS File Download Check -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_FAERS_FILE_CHECK"
+      DESCRIPTION="Verify FAERS quarterly files are available"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/check_file_arrival.sh /data/incoming/faers/$$QUARTER/DEMO*.txt 4"
+      MAXWAIT="120"
+      MAXRERUN="0"
+      CONFIRM="N"
+      CRITICAL="Y"
+    >
+      <INCOND NAME="PHARMA_WEEKLY_SCHEDULE" ODATE="ODAT" AND_OR="AND" />
+      <!-- Depends on drug master being current -->
+      <INCOND NAME="DRUG_DAILY_DONE" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="FAERS_FILES_AVAILABLE" ODATE="ODAT" SIGN="+" />
+
+      <AUTOEDIT NAME="%%QUARTER" VALUE="2025Q4" />
+      <AUTOEDIT NAME="%%BATCH_ID" VALUE="$$ORDERID" />
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOACTION ACTION="SETERROR" />
+        <DOMAIL DEST="pv-team@pharma.com;etl-team@pharma.com"
+                SUBJECT="[ALERT] FAERS files not available - $$ODATE"
+                MESSAGE="FAERS quarterly files for %%QUARTER not found.&#10;Expected: /data/incoming/faers/%%QUARTER/DEMO*.txt&#10;Check FDA download status."
+                URGENCY="R" />
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- STEP 1: Validate FAERS File Structures -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_FAERS_VALIDATE"
+      DESCRIPTION="Validate FAERS file headers, delimiters, and row counts"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh validate /data/incoming/faers/%%QUARTER/*.txt --delimiter '$'"
+      MAXWAIT="30"
+      MAXRERUN="1"
+      CONFIRM="N"
+    >
+      <INCOND NAME="FAERS_FILES_AVAILABLE" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="FAERS_FILES_VALIDATED" ODATE="ODAT" SIGN="+" />
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOACTION ACTION="SETERROR" />
+        <DOMAIL DEST="etl-team@pharma.com"
+                SUBJECT="[ALERT] FAERS file validation failed"
+                MESSAGE="FAERS file structure validation failed for %%QUARTER."
+                URGENCY="R" />
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- STEPS 2-5: Parallel Staging Loads (DEMO, DRUG, REAC, OUTC) -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_FAERS_LOAD_DEMO"
+      DESCRIPTION="Stage FAERS demographics file"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh execute faers_demo --quarter %%QUARTER --batch-id %%BATCH_ID"
+      MAXWAIT="60"
+      MAXRERUN="2"
+      INTERVAL="00:05"
+      CONFIRM="N"
+    >
+      <INCOND NAME="FAERS_FILES_VALIDATED" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="FAERS_DEMO_LOADED" ODATE="ODAT" SIGN="+" />
+      <RESOURCE NAME="ETL_SESSION_SLOT" QUANTITY="1" />
+    </JOB>
+
+    <JOB
+      JOBNAME="J_FAERS_LOAD_DRUG"
+      DESCRIPTION="Stage FAERS drug file"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh execute faers_drug --quarter %%QUARTER --batch-id %%BATCH_ID"
+      MAXWAIT="60"
+      MAXRERUN="2"
+      INTERVAL="00:05"
+      CONFIRM="N"
+    >
+      <INCOND NAME="FAERS_FILES_VALIDATED" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="FAERS_DRUG_LOADED" ODATE="ODAT" SIGN="+" />
+      <RESOURCE NAME="ETL_SESSION_SLOT" QUANTITY="1" />
+    </JOB>
+
+    <JOB
+      JOBNAME="J_FAERS_LOAD_REAC"
+      DESCRIPTION="Stage FAERS reactions file"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh execute faers_reac --quarter %%QUARTER --batch-id %%BATCH_ID"
+      MAXWAIT="60"
+      MAXRERUN="2"
+      INTERVAL="00:05"
+      CONFIRM="N"
+    >
+      <INCOND NAME="FAERS_FILES_VALIDATED" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="FAERS_REAC_LOADED" ODATE="ODAT" SIGN="+" />
+      <RESOURCE NAME="ETL_SESSION_SLOT" QUANTITY="1" />
+    </JOB>
+
+    <JOB
+      JOBNAME="J_FAERS_LOAD_OUTC"
+      DESCRIPTION="Stage FAERS outcomes file"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh execute faers_outc --quarter %%QUARTER --batch-id %%BATCH_ID"
+      MAXWAIT="60"
+      MAXRERUN="2"
+      INTERVAL="00:05"
+      CONFIRM="N"
+    >
+      <INCOND NAME="FAERS_FILES_VALIDATED" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="FAERS_OUTC_LOADED" ODATE="ODAT" SIGN="+" />
+      <RESOURCE NAME="ETL_SESSION_SLOT" QUANTITY="1" />
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- STEP 6: Cross-Reference and Transform -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_FAERS_TRANSFORM"
+      DESCRIPTION="Cross-reference FAERS files and apply transformations"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh execute faers_transform --quarter %%QUARTER --batch-id %%BATCH_ID"
+      MAXWAIT="120"
+      MAXRERUN="2"
+      INTERVAL="00:05"
+      CONFIRM="N"
+      CRITICAL="Y"
+    >
+      <!-- Wait for ALL four staging loads to complete -->
+      <INCOND NAME="FAERS_DEMO_LOADED" ODATE="ODAT" AND_OR="AND" />
+      <INCOND NAME="FAERS_DRUG_LOADED" ODATE="ODAT" AND_OR="AND" />
+      <INCOND NAME="FAERS_REAC_LOADED" ODATE="ODAT" AND_OR="AND" />
+      <INCOND NAME="FAERS_OUTC_LOADED" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="FAERS_TRANSFORM_COMPLETE" ODATE="ODAT" SIGN="+" />
+
+      <RESOURCE NAME="ETL_SESSION_SLOT" QUANTITY="2" />
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOACTION ACTION="SETERROR" />
+        <DOMAIL DEST="etl-team@pharma.com;pv-team@pharma.com"
+                SUBJECT="[CRITICAL] FAERS Transform Failed - %%QUARTER"
+                MESSAGE="FAERS cross-reference transformation failed.&#10;Batch: %%BATCH_ID&#10;Check logs and staging tables."
+                URGENCY="V" />
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- STEP 7: Signal Detection -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_FAERS_SIGNAL_DETECT"
+      DESCRIPTION="Compute PRR/ROR and detect safety signals"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh execute faers_signals --quarter %%QUARTER --batch-id %%BATCH_ID"
+      MAXWAIT="60"
+      MAXRERUN="1"
+      CONFIRM="N"
+      CRITICAL="Y"
+    >
+      <INCOND NAME="FAERS_TRANSFORM_COMPLETE" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="FAERS_SIGNALS_COMPLETE" ODATE="ODAT" SIGN="+" />
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- STEP 8: Data Quality Checks -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_FAERS_DQ_CHECK"
+      DESCRIPTION="Run DQ checks on FAERS loaded data"
+      TASKTYPE="Database"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="sqlplus -s etl_user/$$DBPASS@PHARMADB @/opt/pharmaflow/sql/procedures/run_dq_checks.sql %%BATCH_ID"
+      MAXWAIT="30"
+      MAXRERUN="1"
+      CONFIRM="N"
+    >
+      <INCOND NAME="FAERS_SIGNALS_COMPLETE" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="FAERS_DQ_COMPLETE" ODATE="ODAT" SIGN="+" />
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- STEP 9: Safety Signal Report -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_FAERS_SIGNAL_REPORT"
+      DESCRIPTION="Generate and distribute safety signal report"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh report faers_signals --quarter %%QUARTER --batch-id %%BATCH_ID --email pv-team@pharma.com"
+      MAXWAIT="15"
+      MAXRERUN="1"
+      CONFIRM="N"
+    >
+      <INCOND NAME="FAERS_DQ_COMPLETE" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="FAERS_REPORT_SENT" ODATE="ODAT" SIGN="+" />
+
+      <!-- Always notify PV team about signal results -->
+      <ON STMT="*" CODE="0">
+        <DOMAIL DEST="pv-team@pharma.com;medical-safety@pharma.com"
+                SUBJECT="FAERS Signal Report Ready - %%QUARTER"
+                MESSAGE="Weekly FAERS signal detection report is available.&#10;Quarter: %%QUARTER&#10;Batch: %%BATCH_ID&#10;&#10;Review signals at: https://pharmaflow.internal/reports/signals/%%BATCH_ID"
+                URGENCY="R" />
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- POST: Archive and Cleanup -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_FAERS_ARCHIVE"
+      DESCRIPTION="Archive FAERS source files and cleanup staging"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh archive faers --quarter %%QUARTER --date $$ODATE"
+      MAXWAIT="15"
+      MAXRERUN="0"
+      CONFIRM="N"
+    >
+      <INCOND NAME="FAERS_REPORT_SENT" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="FAERS_WEEKLY_DONE" ODATE="ODAT" SIGN="+" />
+    </JOB>
+
+  </FOLDER>
+</DEFTABLE>

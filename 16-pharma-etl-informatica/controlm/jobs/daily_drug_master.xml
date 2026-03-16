@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Control-M Job Definition: Daily Drug Master ETL
+
+  Schedule: Daily at 02:00 AM EST (after upstream supplier file delivery)
+
+  Flow:
+    1. Pre-condition: Verify source file arrival
+    2. Step 1: Run Drug Master ETL (Python + Informatica-style mapping)
+    3. Step 2: Execute PL/SQL SCD Type 2 merge
+    4. Step 3: Run data quality checks
+    5. Step 4: Email summary report
+    6. Post-condition: Update status table, archive files
+
+  Error handling:
+    - Retry up to 3 times with 5-minute intervals
+    - On persistent failure: alert DBA and on-call team
+    - Bad files written to reject directory for manual review
+-->
+<DEFTABLE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <!-- ================================================================== -->
+  <!-- FOLDER: Daily Pharma ETL -->
+  <!-- ================================================================== -->
+  <FOLDER
+    DATACENTER="PHARMA_DC"
+    FOLDER_NAME="PHARMA_DAILY_DRUG_MASTER"
+    DESCRIPTION="Daily Drug Master Data ETL Pipeline"
+    APPLICATION="PHARMAFLOW"
+    SUB_APPLICATION="DRUG_MASTER"
+    RUN_AS="svc_pharmaflow"
+    ACTIVE_FROM="20260101"
+    ACTIVE_TILL="20991231"
+    DAYS_ORDER_METHOD="ORDER"
+    DAYS="ALL"
+    TIMEFROM="0200"
+    TIMETO="0600"
+    TIMEZONE="US/Eastern"
+    ADJUST_COND="YES"
+  >
+
+    <!-- ================================================================ -->
+    <!-- PRE-CONDITION: Source File Arrival Check -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_DRUG_FILE_CHECK"
+      DESCRIPTION="Verify drug supplier CSV files have arrived"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/check_file_arrival.sh /data/incoming/drug_supplier_*.csv 3"
+      MAXWAIT="60"
+      MAXRERUN="0"
+      CONFIRM="N"
+      CRITICAL="Y"
+      CYCLIC="N"
+      PRIORITY="50"
+    >
+      <INCOND NAME="PHARMA_DAILY_SCHEDULE" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="DRUG_FILES_ARRIVED" ODATE="ODAT" SIGN="+" />
+
+      <!-- File watcher: check every 5 minutes for up to 60 minutes -->
+      <RESOURCE NAME="FILE_WATCHER_DRUG" QUANTITY="1" />
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOACTION ACTION="SETERROR" />
+        <DOMAIL DEST="etl-team@pharma.com"
+                SUBJECT="[ALERT] Drug supplier files not arrived - $$ODATE"
+                MESSAGE="Drug supplier CSV files have not arrived by the expected time.&#10;Expected path: /data/incoming/drug_supplier_*.csv&#10;Please check with data suppliers."
+                URGENCY="R" />
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- STEP 1: File Validation (checksums, row counts) -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_DRUG_FILE_VALIDATE"
+      DESCRIPTION="Validate source file checksums and row counts"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh validate /data/incoming/drug_supplier_*.csv"
+      MAXWAIT="15"
+      MAXRERUN="1"
+      CONFIRM="N"
+    >
+      <INCOND NAME="DRUG_FILES_ARRIVED" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="DRUG_FILES_VALIDATED" ODATE="ODAT" SIGN="+" />
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOACTION ACTION="SETERROR" />
+        <DOMAIL DEST="etl-team@pharma.com"
+                SUBJECT="[ALERT] Drug file validation failed - $$ODATE"
+                MESSAGE="Source file validation failed. Check bad file records.&#10;Review: /opt/pharmaflow/logs/validation_$$ODATE.log"
+                URGENCY="R" />
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- STEP 2: Run Drug Master ETL (Python PharmaFlow) -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_DRUG_MASTER_ETL"
+      DESCRIPTION="Execute Drug Master SCD2 ETL mapping via PharmaFlow"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh execute drug_master --batch-id $$ORDERID --date $$ODATE"
+      MAXWAIT="120"
+      MAXRERUN="3"
+      INTERVAL="00:05"
+      CONFIRM="N"
+      CRITICAL="Y"
+    >
+      <INCOND NAME="DRUG_FILES_VALIDATED" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="DRUG_ETL_COMPLETE" ODATE="ODAT" SIGN="+" />
+
+      <!-- Resource: limit concurrent ETL sessions -->
+      <RESOURCE NAME="ETL_SESSION_SLOT" QUANTITY="1" />
+
+      <!-- Auto-archive on success -->
+      <AUTOEDIT NAME="%%BATCH_ID" VALUE="$$ORDERID" />
+      <AUTOEDIT NAME="%%PROCESS_DATE" VALUE="$$ODATE" />
+
+      <SHOUT WHEN="NOTOK" DEST="etl-team@pharma.com"
+             MESSAGE="Drug Master ETL FAILED after 3 retries on $$ODATE. Batch: $$ORDERID"
+             URGENCY="V" />
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOACTION ACTION="SETERROR" />
+        <DOMAIL DEST="etl-team@pharma.com;dba-oncall@pharma.com"
+                SUBJECT="[CRITICAL] Drug Master ETL Failed - $$ODATE"
+                MESSAGE="Drug Master ETL pipeline failed after all retry attempts.&#10;&#10;Batch ID: $$ORDERID&#10;Date: $$ODATE&#10;&#10;Actions required:&#10;1. Check logs: /opt/pharmaflow/logs/drug_master_$$ODATE.log&#10;2. Review bad file: /opt/pharmaflow/reject/drug_master_bad_*.csv&#10;3. Check database connectivity&#10;4. Verify staging table loads"
+                URGENCY="V" />
+      </ON>
+
+      <ON STMT="*" CODE="0">
+        <DOACTION ACTION="OK" />
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- STEP 3: PL/SQL SCD Type 2 Merge -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_DRUG_SCD2_MERGE"
+      DESCRIPTION="Execute PL/SQL SCD Type 2 merge for dim_drug"
+      TASKTYPE="Database"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="sqlplus -s etl_user/$$DBPASS@PHARMADB @/opt/pharmaflow/sql/procedures/run_scd2_merge.sql $$ORDERID"
+      MAXWAIT="60"
+      MAXRERUN="2"
+      INTERVAL="00:03"
+      CONFIRM="N"
+    >
+      <INCOND NAME="DRUG_ETL_COMPLETE" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="DRUG_SCD2_COMPLETE" ODATE="ODAT" SIGN="+" />
+
+      <ON STMT="*" CODE="NOTOK">
+        <DOACTION ACTION="SETERROR" />
+        <DOMAIL DEST="dba-oncall@pharma.com"
+                SUBJECT="[ALERT] SCD2 Merge Failed - dim_drug - $$ODATE"
+                MESSAGE="PL/SQL SCD Type 2 merge procedure failed.&#10;Check: SELECT * FROM etl_error_log WHERE batch_id = $$ORDERID;"
+                URGENCY="R" />
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- STEP 4: Data Quality Checks -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_DRUG_DQ_CHECK"
+      DESCRIPTION="Run data quality validation on drug dimension"
+      TASKTYPE="Database"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="sqlplus -s etl_user/$$DBPASS@PHARMADB @/opt/pharmaflow/sql/procedures/run_dq_checks.sql $$ORDERID"
+      MAXWAIT="30"
+      MAXRERUN="1"
+      CONFIRM="N"
+    >
+      <INCOND NAME="DRUG_SCD2_COMPLETE" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="DRUG_DQ_COMPLETE" ODATE="ODAT" SIGN="+" />
+
+      <!-- DQ failure is warning, not fatal -->
+      <ON STMT="*" CODE="1">
+        <DOMAIL DEST="etl-team@pharma.com;data-governance@pharma.com"
+                SUBJECT="[WARNING] Drug DQ Issues Detected - $$ODATE"
+                MESSAGE="Data quality checks found issues.&#10;Query: SELECT * FROM dq_validation_result WHERE batch_id = $$ORDERID AND status = 'FAIL';"
+                URGENCY="R" />
+        <DOACTION ACTION="OK" />
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- STEP 5: Email Summary Report -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_DRUG_REPORT"
+      DESCRIPTION="Generate and email daily drug master load report"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh report drug_master --batch-id $$ORDERID --date $$ODATE --email etl-team@pharma.com"
+      MAXWAIT="15"
+      MAXRERUN="1"
+      CONFIRM="N"
+    >
+      <INCOND NAME="DRUG_DQ_COMPLETE" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="DRUG_PIPELINE_COMPLETE" ODATE="ODAT" SIGN="+" />
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- POST-CONDITION: Archive and Cleanup -->
+    <!-- ================================================================ -->
+    <JOB
+      JOBNAME="J_DRUG_ARCHIVE"
+      DESCRIPTION="Archive source files and cleanup staging tables"
+      TASKTYPE="Command"
+      RUN_AS="svc_pharmaflow"
+      CMDLINE="/opt/pharmaflow/scripts/unix/run_etl.sh archive drug_master --date $$ODATE"
+      MAXWAIT="15"
+      MAXRERUN="0"
+      CONFIRM="N"
+    >
+      <INCOND NAME="DRUG_PIPELINE_COMPLETE" ODATE="ODAT" AND_OR="AND" />
+      <OUTCOND NAME="DRUG_DAILY_DONE" ODATE="ODAT" SIGN="+" />
+    </JOB>
+
+  </FOLDER>
+</DEFTABLE>

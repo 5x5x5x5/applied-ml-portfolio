@@ -1,0 +1,58 @@
+services:
+  api:
+    build:
+      context: .
+      target: production
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - FORECAST_BUCKET=pharma-forecast-data-dev
+      - LOG_LEVEL=info
+    volumes:
+      - ./frontend:/app/frontend:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  localstack:
+    image: localstack/localstack:3
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,sqs,sns
+      - DEFAULT_REGION=us-east-1
+      - DATA_DIR=/var/lib/localstack/data
+    volumes:
+      - localstack-data:/var/lib/localstack
+
+  tests:
+    build:
+      context: .
+      target: test
+    environment:
+      - ENVIRONMENT=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+    depends_on:
+      - localstack
+    profiles:
+      - test
+
+volumes:
+  localstack-data:

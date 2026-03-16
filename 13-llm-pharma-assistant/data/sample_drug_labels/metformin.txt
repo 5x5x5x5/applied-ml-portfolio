@@ -1,0 +1,160 @@
+HIGHLIGHTS OF PRESCRIBING INFORMATION
+These highlights do not include all the information needed to use METFORMIN HYDROCHLORIDE safely and effectively.
+See full prescribing information for METFORMIN HYDROCHLORIDE.
+
+METFORMIN HYDROCHLORIDE tablets, for oral use
+Initial U.S. Approval: 1995
+
+BOXED WARNING: LACTIC ACIDOSIS
+Postmarketing cases of metformin-associated lactic acidosis have resulted in death, hypothermia, hypotension, and resistant bradyarrhythmias. The onset of metformin-associated lactic acidosis is often subtle, accompanied only by nonspecific symptoms such as malaise, myalgias, respiratory distress, somnolence, and abdominal pain. Metformin-associated lactic acidosis was characterized by elevated blood lactate levels (>5 mmol/L), anion gap acidosis (without evidence of ketonuria or ketonemia), an increased lactate/pyruvate ratio, and metformin plasma levels generally >5 mcg/mL.
+
+Risk factors for metformin-associated lactic acidosis include renal impairment, concomitant use of certain drugs (e.g., carbonic anhydrase inhibitors such as topiramate), age 65 years old or greater, having a radiological study with contrast, surgery and other procedures, hypoxic states, excessive alcohol intake, and hepatic impairment.
+
+Steps to reduce the risk of and manage metformin-associated lactic acidosis:
+- Contraindicated in patients with an eGFR below 30 mL/min/1.73 m2.
+- Initiation is not recommended in patients with eGFR between 30-45 mL/min/1.73 m2.
+- Obtain an eGFR before initiation and at least annually thereafter.
+- In patients taking metformin whose eGFR falls below 45 mL/min/1.73 m2, assess the benefit-risk of continuing therapy.
+- Promptly withhold metformin in the presence of any condition associated with hypoxemia, dehydration, or sepsis.
+- Withhold before or at the time of iodinated contrast imaging procedures in patients with eGFR 30-60 mL/min/1.73 m2.
+
+INDICATIONS AND USAGE
+Metformin hydrochloride is a biguanide indicated as an adjunct to diet and exercise to improve glycemic control in adults and pediatric patients 10 years of age and older with type 2 diabetes mellitus.
+
+Limitations of Use:
+- Not recommended for use in patients with type 1 diabetes mellitus.
+- Not for treatment of diabetic ketoacidosis.
+
+DOSAGE AND ADMINISTRATION
+- Adults: Starting dose 500 mg orally twice daily or 850 mg once daily with meals. Increase dose in increments of 500 mg weekly or 850 mg every 2 weeks as tolerated. Maximum dose: 2550 mg/day in divided doses.
+- Pediatric patients (10 years and older): Starting dose 500 mg orally twice daily with meals. Increase dose in increments of 500 mg weekly as tolerated. Maximum dose: 2000 mg/day in divided doses.
+- Administer with meals to reduce GI side effects.
+- Swallow tablets whole; do not crush or chew.
+- Adjust dosage based on effectiveness and tolerability.
+
+Renal Dose Adjustments:
+- eGFR 45 or above: No dose adjustment required.
+- eGFR 30-45: Initiation is not recommended. Assess benefit-risk in patients already on metformin.
+- eGFR below 30: Contraindicated.
+
+DOSAGE FORMS AND STRENGTHS
+Tablets: 500 mg, 850 mg, 1000 mg
+
+CONTRAINDICATIONS
+- Severe renal impairment (eGFR below 30 mL/min/1.73 m2)
+- Known hypersensitivity to metformin hydrochloride
+- Acute or chronic metabolic acidosis, including diabetic ketoacidosis
+
+WARNINGS AND PRECAUTIONS
+Lactic Acidosis: See Boxed Warning. Metformin-associated lactic acidosis is a medical emergency that must be treated in a hospital setting. Discontinue metformin immediately and institute general supportive measures.
+
+Vitamin B12 Deficiency: Metformin may lower vitamin B12 levels. In controlled clinical trials, approximately 7% of patients developed subnormal vitamin B12 levels. Measure hematologic parameters annually and vitamin B12 at 2-3 year intervals. Consider supplementation in patients with inadequate B12 intake or absorption.
+
+Hypoglycemia with Concomitant Use of Insulin and Insulin Secretagogues: Metformin alone does not usually cause hypoglycemia. However, when combined with insulin or insulin secretagogues (e.g., sulfonylureas), a lower dose of insulin or the secretagogue may be needed to reduce hypoglycemia risk.
+
+Macrovascular Outcomes: No clinical studies establishing conclusive evidence of macrovascular risk reduction with metformin have been conducted.
+
+ADVERSE REACTIONS
+Most common adverse reactions (>=5%):
+- Diarrhea (53.2%)
+- Nausea/vomiting (25.5%)
+- Flatulence (12.1%)
+- Abdominal discomfort/pain (6.4%)
+- Indigestion (7.1%)
+- Asthenia (9.2%)
+- Headache (5.7%)
+
+Uncommon adverse reactions (1-5%):
+- Metallic taste (3.0%)
+- Light-headedness/dizziness (1.5%)
+- Nail abnormalities
+- Rash
+
+Rare adverse reactions (<1%):
+- Lactic acidosis (see Boxed Warning)
+- Vitamin B12 deficiency/megaloblastic anemia
+- Hepatitis
+- Cholestatic jaundice
+
+GI adverse reactions are the most commonly reported. They tend to occur during initiation of therapy and are generally transient. Advise patients that GI symptoms are common and usually resolve over time. Taking metformin with meals can reduce GI side effects.
+
+DRUG INTERACTIONS
+Carbonic Anhydrase Inhibitors (e.g., topiramate, zonisamide, acetazolamide): May increase the risk of lactic acidosis. Consider more frequent monitoring.
+
+Drugs That Reduce Metformin Clearance (e.g., ranolazine, vandetanib, dolutegravir, cimetidine): May increase metformin accumulation. Consider dose adjustment and monitoring.
+
+Alcohol: Alcohol potentiates the effect of metformin on lactate metabolism. Warn patients against excessive alcohol intake.
+
+Iodinated Contrast Agents: Intravascular administration of iodinated contrast agents may lead to acute renal failure and has been associated with lactic acidosis in patients receiving metformin. Withhold metformin before or at the time of the procedure, and for 48 hours after the procedure. Restart only after renal function has been re-evaluated and found normal.
+
+Insulin and Insulin Secretagogues: Concomitant use may increase the risk of hypoglycemia. A lower dose of insulin or the secretagogue may be needed.
+
+Drugs That May Affect Glycemic Control: Certain drugs tend to produce hyperglycemia (thiazides, corticosteroids, phenothiazines, thyroid products, estrogens, oral contraceptives, phenytoin, nicotinic acid, sympathomimetics, calcium channel blockers, isoniazid). When such drugs are administered to a patient receiving metformin, closely monitor glycemic control.
+
+USE IN SPECIFIC POPULATIONS
+Pregnancy: Limited data with metformin in pregnant women are not sufficient to determine a drug-associated risk of adverse developmental outcomes. Poorly controlled diabetes in pregnancy increases maternal risk for diabetic ketoacidosis, pre-eclampsia, spontaneous abortions, preterm delivery, and delivery complications.
+
+Lactation: Limited data indicate metformin is present in human milk. There is no information on the effects of metformin on the breastfed infant or on milk production.
+
+Pediatric Use: Safety and effectiveness in pediatric patients below 10 years of age have not been established. Use in pediatric patients 10 to 16 years of age is supported by evidence from adequate and well-controlled studies.
+
+Geriatric Use: Elderly patients are more likely to have decreased renal function. Assess renal function more frequently. Generally, do not titrate to the maximum dose.
+
+Renal Impairment: Metformin is substantially excreted by the kidney. The risk of metformin accumulation and lactic acidosis increases with the degree of renal impairment. See Dosage and Administration for dose adjustments based on eGFR.
+
+Hepatic Impairment: Use of metformin in patients with hepatic impairment has been associated with some cases of lactic acidosis. Avoid use in patients with clinical or laboratory evidence of hepatic disease.
+
+OVERDOSAGE
+Hypoglycemia has not been seen with metformin doses up to 85 g, although lactic acidosis has occurred under such circumstances. Metformin overdose is associated with lactic acidosis.
+
+Metformin is dialyzable with a clearance of up to 170 mL/min under good hemodynamic conditions. Therefore, hemodialysis may be useful for removal of accumulated drug from patients in whom metformin overdosage is suspected.
+
+DESCRIPTION
+Metformin hydrochloride is a biguanide antihyperglycemic agent. Chemically, metformin hydrochloride is N,N-dimethylimidodicarbonimidic diamide monohydrochloride. Its molecular formula is C4H11N5*HCl and its molecular weight is 165.63.
+
+CLINICAL PHARMACOLOGY
+Mechanism of Action: Metformin improves glycemic control by three primary mechanisms:
+1. Decreases hepatic glucose production (gluconeogenesis)
+2. Decreases intestinal absorption of glucose
+3. Improves insulin sensitivity by increasing peripheral glucose uptake and utilization
+
+Metformin does not stimulate insulin secretion and therefore does not produce hypoglycemia when used alone. It does not cause weight gain and may be associated with modest weight loss.
+
+Pharmacokinetics:
+- Absorption: Absolute bioavailability of 500 mg tablet is approximately 50-60%. Food decreases the extent and slightly delays absorption.
+- Distribution: Metformin partitions into erythrocytes. Peak plasma levels reached in 2.5 hours. Negligible plasma protein binding.
+- Metabolism: Metformin is not metabolized. It is excreted unchanged in the urine.
+- Elimination: Renal clearance is approximately 3.5 times greater than creatinine clearance, indicating active tubular secretion. Elimination half-life is approximately 6.2 hours (plasma) and 17.6 hours (blood, reflecting erythrocyte partitioning).
+
+CLINICAL STUDIES
+A 29-week, double-blind, placebo-controlled, multicenter study demonstrated that metformin monotherapy significantly improved glycemic control vs placebo:
+- HbA1c reduction: -1.4% (metformin) vs +0.4% (placebo)
+- Fasting plasma glucose reduction: -53 mg/dL (metformin) vs +6 mg/dL (placebo)
+- Body weight: no significant change with metformin vs baseline
+
+The United Kingdom Prospective Diabetes Study (UKPDS) demonstrated that intensive glucose control with metformin in overweight patients with type 2 diabetes was associated with a reduction in diabetes-related endpoints, diabetes-related death, and all-cause mortality compared to diet alone.
+
+HOW SUPPLIED
+Metformin Hydrochloride Tablets 500 mg are white, round, film-coated tablets debossed with "MET 500" (NDC 0378-7185-01, bottles of 100).
+Metformin Hydrochloride Tablets 850 mg are white, round, film-coated tablets debossed with "MET 850" (NDC 0378-7186-01, bottles of 100).
+Metformin Hydrochloride Tablets 1000 mg are white, oval, film-coated tablets debossed with "MET 1000" (NDC 0378-7187-01, bottles of 100).
+
+STORAGE AND HANDLING
+Store at 20-25 degrees C (68-77 degrees F); excursions permitted to 15-30 degrees C (59-86 degrees F).
+Protect from light and moisture.
+Dispense in a light-resistant container as described in the USP.
+
+PATIENT COUNSELING INFORMATION
+Advise patients:
+- About the risks, symptoms, and conditions that predispose to the development of lactic acidosis.
+- To discontinue metformin and seek medical attention immediately if unexplained hyperventilation, malaise, myalgias, unusual somnolence, or other nonspecific symptoms occur.
+- To inform their healthcare provider if they undergo radiological procedures involving iodinated contrast.
+- About the risks of hypoglycemia when metformin is used in combination with insulin or insulin secretagogues.
+- About the importance of regular testing of renal function, hematologic parameters, and blood glucose.
+- Against excessive alcohol intake while receiving metformin.
+- That GI symptoms are common during initiation and are generally transient. Taking metformin with meals can help reduce GI side effects.
+
+Manufactured by: Mylan Pharmaceuticals Inc.
+Morgantown, WV 26505
+
+Revised: January 2024

@@ -1,0 +1,348 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PharmaDataVault - Control-M Daily ETL Job Definitions
+
+  This workflow defines the daily ETL pipeline for loading pharmaceutical
+  data into the Data Vault 2.0 warehouse. Jobs execute in dependency order
+  with proper error handling, notification, and resource management.
+
+  Schedule: Daily at 02:00 AM (after source system batch windows close)
+  Calendar: PHARMA_BUSINESS_CALENDAR (excludes holidays and maintenance)
+  SLA: Complete by 06:00 AM for business reporting availability
+-->
+<DEFTABLE xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+  <!-- ================================================================== -->
+  <!-- FOLDER: PHARMA_DAILY_ETL                                           -->
+  <!-- ================================================================== -->
+  <FOLDER DATACENTER="PHARMA_DC" FOLDER_NAME="PHARMA_DAILY_ETL"
+          FOLDER_ORDER_METHOD="SYSTEM"
+          APPLICATION="PharmaDataVault"
+          SUB_APPLICATION="DailyETL"
+          REAL_FOLDER_ID="0"
+          ADJUST_COND="Y"
+          ACTIVE_FROM="20240101"
+          ACTIVE_TILL="20991231"
+          DAYS="ALL"
+          CALENDAR="PHARMA_BUSINESS_CALENDAR"
+          RUN_AS="etl_svc_account"
+          TIMEFROM="0200"
+          TIMETO="0600"
+          PRIORITY="50">
+
+    <!-- ================================================================ -->
+    <!-- Job 1: FILE_ARRIVAL_CHECK                                        -->
+    <!-- Pre-condition: verify that source system files have arrived       -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_FILE_ARRIVAL_CHECK"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="DailyETL"
+         MEMLIB="/opt/pharma_vault/scripts/unix"
+         MEMNAME="daily_etl.sh"
+         CMDLINE="/opt/pharma_vault/scripts/unix/daily_etl.sh --phase check_files"
+         DESCRIPTION="Verify daily feed files have arrived in staging directory"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="3"
+         AUTOARCH="Y"
+         MAXWAIT="60"
+         CONFIRM="N"
+         CRITICAL="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01"
+         TIMEFROM="0200"
+         TIMETO="0300">
+
+      <!-- Quantitative resources: limit concurrent ETL jobs -->
+      <QUANTITATIVE NAME="PHARMA_ETL_SLOTS" QUANT="1"/>
+
+      <!-- On failure: notify DBA team and data engineering -->
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="R"
+                DEST="pharma-dba@company.com;data-eng@company.com"
+                CC="etl-oncall@company.com"
+                SUBJECT="[CRITICAL] PharmaVault: Daily feed files not arrived"
+                MESSAGE="Daily ETL feed files have not arrived in the staging directory by the expected time. Please check source system batch jobs and file transfer processes. Job: %%JOBNAME, RunDate: %%ODATE"/>
+      </ON>
+
+      <!-- On success: set condition for downstream jobs -->
+      <ON CODE="0">
+        <DOCOND NAME="FILES_ARRIVED-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 2: STAGE_DRUG_DATA                                           -->
+    <!-- Load and cleanse drug feed data into staging tables               -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_STAGE_DRUG_DATA"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="DailyETL"
+         MEMLIB="/opt/pharma_vault/scripts/unix"
+         MEMNAME="daily_etl.sh"
+         CMDLINE="/opt/pharma_vault/scripts/unix/daily_etl.sh --phase stage_drugs"
+         DESCRIPTION="Load and cleanse drug feed data into staging tables"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="2"
+         AUTOARCH="Y"
+         CONFIRM="N"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01">
+
+      <!-- Depends on file arrival -->
+      <INCOND NAME="FILES_ARRIVED-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+
+      <QUANTITATIVE NAME="PHARMA_ETL_SLOTS" QUANT="1"/>
+      <QUANTITATIVE NAME="PHARMA_DB_CONNECTIONS" QUANT="2"/>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="R"
+                DEST="data-eng@company.com"
+                SUBJECT="[ERROR] PharmaVault: Drug staging failed"
+                MESSAGE="Drug data staging failed. Batch: %%ODATE. Check ETL_ERROR_LOG for details. Job: %%JOBNAME"/>
+      </ON>
+
+      <ON CODE="0">
+        <DOCOND NAME="DRUG_STAGED-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 3: STAGE_PATIENT_DATA                                        -->
+    <!-- Can run in parallel with drug staging                            -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_STAGE_PATIENT_DATA"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="DailyETL"
+         MEMLIB="/opt/pharma_vault/scripts/unix"
+         MEMNAME="daily_etl.sh"
+         CMDLINE="/opt/pharma_vault/scripts/unix/daily_etl.sh --phase stage_patients"
+         DESCRIPTION="Load and cleanse patient demographic data"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="2"
+         AUTOARCH="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01">
+
+      <INCOND NAME="FILES_ARRIVED-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+      <QUANTITATIVE NAME="PHARMA_ETL_SLOTS" QUANT="1"/>
+      <QUANTITATIVE NAME="PHARMA_DB_CONNECTIONS" QUANT="2"/>
+
+      <ON CODE="0">
+        <DOCOND NAME="PATIENT_STAGED-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="R" DEST="data-eng@company.com"
+                SUBJECT="[ERROR] PharmaVault: Patient staging failed"
+                MESSAGE="Patient data staging failed. Job: %%JOBNAME, Date: %%ODATE"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 4: STAGE_TRIAL_AE_DATA                                       -->
+    <!-- Stages both trial and adverse event data (parallel with above)   -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_STAGE_TRIAL_AE_DATA"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="DailyETL"
+         MEMLIB="/opt/pharma_vault/scripts/unix"
+         MEMNAME="daily_etl.sh"
+         CMDLINE="/opt/pharma_vault/scripts/unix/daily_etl.sh --phase stage_trials_ae"
+         DESCRIPTION="Load clinical trial and adverse event data"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="2"
+         AUTOARCH="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01">
+
+      <INCOND NAME="FILES_ARRIVED-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+      <QUANTITATIVE NAME="PHARMA_ETL_SLOTS" QUANT="1"/>
+      <QUANTITATIVE NAME="PHARMA_DB_CONNECTIONS" QUANT="2"/>
+
+      <ON CODE="0">
+        <DOCOND NAME="TRIAL_AE_STAGED-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="R" DEST="data-eng@company.com"
+                SUBJECT="[ERROR] PharmaVault: Trial/AE staging failed"
+                MESSAGE="Trial and AE data staging failed. Job: %%JOBNAME, Date: %%ODATE"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 5: LOAD_RAW_VAULT                                            -->
+    <!-- Load hubs, links, and satellites from staging                     -->
+    <!-- Depends on ALL staging jobs completing successfully               -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_LOAD_RAW_VAULT"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="DailyETL"
+         MEMLIB="/opt/pharma_vault/scripts/unix"
+         MEMNAME="daily_etl.sh"
+         CMDLINE="/opt/pharma_vault/scripts/unix/daily_etl.sh --phase load_vault"
+         DESCRIPTION="Load raw vault (hubs, links, satellites) from staging"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="1"
+         AUTOARCH="Y"
+         CONFIRM="N"
+         CRITICAL="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01">
+
+      <!-- Wait for ALL staging jobs -->
+      <INCOND NAME="DRUG_STAGED-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+      <INCOND NAME="PATIENT_STAGED-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+      <INCOND NAME="TRIAL_AE_STAGED-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+
+      <QUANTITATIVE NAME="PHARMA_ETL_SLOTS" QUANT="1"/>
+      <QUANTITATIVE NAME="PHARMA_DB_CONNECTIONS" QUANT="5"/>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="U"
+                DEST="pharma-dba@company.com;data-eng@company.com"
+                CC="etl-oncall@company.com"
+                SUBJECT="[CRITICAL] PharmaVault: Raw vault loading FAILED"
+                MESSAGE="Raw vault loading has failed. This is a critical failure that blocks all downstream processing. Immediate investigation required. Job: %%JOBNAME, Date: %%ODATE"/>
+      </ON>
+
+      <ON CODE="0">
+        <DOCOND NAME="VAULT_LOADED-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 6: DATA_QUALITY_CHECKS                                       -->
+    <!-- Validate loaded data before business vault/mart updates          -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_DATA_QUALITY"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="DailyETL"
+         MEMLIB="/opt/pharma_vault/scripts/unix"
+         MEMNAME="daily_etl.sh"
+         CMDLINE="/opt/pharma_vault/scripts/unix/daily_etl.sh --phase quality_checks"
+         DESCRIPTION="Run data quality validation on raw vault"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="1"
+         AUTOARCH="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01">
+
+      <INCOND NAME="VAULT_LOADED-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+      <QUANTITATIVE NAME="PHARMA_DB_CONNECTIONS" QUANT="2"/>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="R" DEST="data-eng@company.com;data-quality@company.com"
+                SUBJECT="[WARNING] PharmaVault: Data quality issues detected"
+                MESSAGE="Data quality checks have identified issues. Review the DQ report and ETL_ERROR_LOG. Pipeline will continue but mart data may be affected. Date: %%ODATE"/>
+        <!-- DQ failures are warnings, not blockers -->
+        <DOCOND NAME="DQ_COMPLETE-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+
+      <ON CODE="0">
+        <DOCOND NAME="DQ_COMPLETE-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 7: POPULATE_BUSINESS_VAULT                                   -->
+    <!-- Refresh PIT tables and bridge tables                             -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_BUSINESS_VAULT"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="DailyETL"
+         MEMLIB="/opt/pharma_vault/scripts/unix"
+         MEMNAME="daily_etl.sh"
+         CMDLINE="/opt/pharma_vault/scripts/unix/daily_etl.sh --phase business_vault"
+         DESCRIPTION="Refresh PIT tables and bridge tables in business vault"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="2"
+         AUTOARCH="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01">
+
+      <INCOND NAME="DQ_COMPLETE-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+      <QUANTITATIVE NAME="PHARMA_DB_CONNECTIONS" QUANT="3"/>
+
+      <ON CODE="0">
+        <DOCOND NAME="BV_COMPLETE-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="R" DEST="data-eng@company.com"
+                SUBJECT="[ERROR] PharmaVault: Business vault refresh failed"
+                MESSAGE="Business vault (PIT/bridge) refresh failed. Date: %%ODATE"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- Job 8: ARCHIVE_AND_CLEANUP                                       -->
+    <!-- Archive processed files and purge old staging data               -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_ARCHIVE_CLEANUP"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="DailyETL"
+         MEMLIB="/opt/pharma_vault/scripts/unix"
+         MEMNAME="daily_etl.sh"
+         CMDLINE="/opt/pharma_vault/scripts/unix/daily_etl.sh --phase archive"
+         DESCRIPTION="Archive processed files and clean up staging tables"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         MAXRERUN="1"
+         AUTOARCH="Y"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01">
+
+      <INCOND NAME="BV_COMPLETE-%%ODATE" ODATE="ODAT" AND_OR="A"/>
+
+      <ON CODE="0">
+        <DOCOND NAME="DAILY_ETL_COMPLETE-%%ODATE" ODATE="ODAT" SIGN="+"/>
+        <DOMAIL URGENCY="R"
+                DEST="data-eng@company.com"
+                SUBJECT="[OK] PharmaVault: Daily ETL completed successfully"
+                MESSAGE="Daily ETL pipeline completed successfully for %%ODATE. All stages processed. Data is available for reporting."/>
+      </ON>
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="R" DEST="data-eng@company.com"
+                SUBJECT="[WARNING] PharmaVault: Archive/cleanup failed (non-critical)"
+                MESSAGE="File archival or staging cleanup encountered errors. Data loading was successful. Date: %%ODATE"/>
+        <!-- Non-critical: still mark ETL as complete -->
+        <DOCOND NAME="DAILY_ETL_COMPLETE-%%ODATE" ODATE="ODAT" SIGN="+"/>
+      </ON>
+    </JOB>
+
+    <!-- ================================================================ -->
+    <!-- SLA Job: Monitor pipeline completion time                        -->
+    <!-- ================================================================ -->
+    <JOB JOBNAME="PV_SLA_MONITOR"
+         APPLICATION="PharmaDataVault"
+         SUB_APPLICATION="DailyETL"
+         MEMLIB="/opt/pharma_vault/scripts/unix"
+         MEMNAME="monitor_etl.sh"
+         CMDLINE="/opt/pharma_vault/scripts/unix/monitor_etl.sh --check sla"
+         DESCRIPTION="SLA monitoring - alert if ETL not complete by 06:00"
+         TASKTYPE="Job"
+         CYCLIC="N"
+         RUN_AS="etl_svc_account"
+         HOST="pharma-etl-01"
+         TIMEFROM="0600"
+         TIMETO="0615">
+
+      <ON CODE="NOTOK">
+        <DOMAIL URGENCY="U"
+                DEST="pharma-dba@company.com;data-eng@company.com;etl-oncall@company.com"
+                SUBJECT="[SLA BREACH] PharmaVault: Daily ETL not complete by 06:00"
+                MESSAGE="CRITICAL: The daily ETL pipeline has not completed by the 06:00 AM SLA deadline. Business reporting data may be stale. Immediate investigation required. Date: %%ODATE"/>
+      </ON>
+    </JOB>
+
+  </FOLDER>
+</DEFTABLE>

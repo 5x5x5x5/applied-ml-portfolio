@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PharmaAgents - Multi-Agent Research Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <header class="top-bar">
+        <div class="logo">
+            <span class="logo-icon">&#9883;</span>
+            <h1>PharmaAgents</h1>
+            <span class="subtitle">Multi-Agent Research Intelligence</span>
+        </div>
+        <div class="connection-status" id="connectionStatus">
+            <span class="status-dot disconnected"></span>
+            <span class="status-text">Disconnected</span>
+        </div>
+    </header>
+
+    <div class="main-layout">
+        <!-- Left Sidebar: Agents & Workflows -->
+        <aside class="sidebar">
+            <section class="sidebar-section">
+                <h2>Agents</h2>
+                <div class="agent-list" id="agentList">
+                    <button class="agent-btn active" data-agent="" title="Auto-route to best agent(s)">
+                        <span class="agent-color" style="background: #7c3aed;"></span>
+                        <span class="agent-name">Auto-Route</span>
+                    </button>
+                    <button class="agent-btn" data-agent="LiteratureAgent" title="Literature review specialist">
+                        <span class="agent-color" style="background: #2563eb;"></span>
+                        <span class="agent-name">Literature</span>
+                        <span class="agent-badge">Dr. Reeves</span>
+                    </button>
+                    <button class="agent-btn" data-agent="SafetyAgent" title="Drug safety specialist">
+                        <span class="agent-color" style="background: #dc2626;"></span>
+                        <span class="agent-name">Safety</span>
+                        <span class="agent-badge">Dr. Okafor</span>
+                    </button>
+                    <button class="agent-btn" data-agent="ChemistryAgent" title="Medicinal chemistry specialist">
+                        <span class="agent-color" style="background: #059669;"></span>
+                        <span class="agent-name">Chemistry</span>
+                        <span class="agent-badge">Dr. Patel</span>
+                    </button>
+                    <button class="agent-btn" data-agent="RegulatoryAgent" title="Regulatory intelligence specialist">
+                        <span class="agent-color" style="background: #d97706;"></span>
+                        <span class="agent-name">Regulatory</span>
+                        <span class="agent-badge">Dr. Marsh</span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="sidebar-section">
+                <h2>Workflows</h2>
+                <div class="workflow-list" id="workflowList">
+                    <button class="workflow-btn" data-workflow="drug_candidate_assessment">
+                        <span class="workflow-icon">&#128300;</span>
+                        Drug Candidate Assessment
+                    </button>
+                    <button class="workflow-btn" data-workflow="safety_signal_investigation">
+                        <span class="workflow-icon">&#9888;</span>
+                        Safety Signal Investigation
+                    </button>
+                    <button class="workflow-btn" data-workflow="competitive_analysis">
+                        <span class="workflow-icon">&#128202;</span>
+                        Competitive Analysis
+                    </button>
+                    <button class="workflow-btn" data-workflow="regulatory_strategy">
+                        <span class="workflow-icon">&#128220;</span>
+                        Regulatory Strategy
+                    </button>
+                </div>
+            </section>
+
+            <section class="sidebar-section">
+                <h2>Quick Examples</h2>
+                <div class="example-list">
+                    <button class="example-btn" data-query="What is the safety profile of osimertinib for NSCLC?">
+                        Osimertinib Safety
+                    </button>
+                    <button class="example-btn" data-query="Analyze the drug-likeness of the molecule with SMILES: CC1=C(C=C(C=C1)NC(=O)C2=CC=C(C=C2)CN3CCN(CC3)C)NC4=NC=CC(=N4)C5=CN=CC=C5">
+                        Analyze Imatinib Structure
+                    </button>
+                    <button class="example-btn" data-query="What is the regulatory pathway for a novel KRAS G12C inhibitor in oncology?">
+                        KRAS Inhibitor Pathway
+                    </button>
+                    <button class="example-btn" data-query="Review the clinical evidence for PD-1 inhibitors in non-small cell lung cancer">
+                        PD-1 Literature Review
+                    </button>
+                </div>
+            </section>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-area">
+            <div class="conversation" id="conversation">
+                <div class="welcome-message">
+                    <h2>Welcome to PharmaAgents</h2>
+                    <p>Ask a pharmaceutical research question and our specialized AI agents will collaborate to provide comprehensive analysis.</p>
+                    <p>Select a specific agent, use auto-routing, or launch a predefined workflow.</p>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <textarea id="queryInput" placeholder="Ask a pharmaceutical research question..." rows="2"></textarea>
+                    <button id="sendBtn" class="send-btn" title="Send query">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 2L11 13M22 2L15 22L11 13M11 13L2 9L22 2"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="input-info">
+                    <span id="selectedAgent">Mode: Auto-Route</span>
+                    <span class="char-count" id="charCount">0</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- Right Panel: Structured Output -->
+        <aside class="results-panel" id="resultsPanel">
+            <div class="panel-header">
+                <h2>Analysis Details</h2>
+                <button class="panel-toggle" id="panelToggle" title="Toggle panel">&#9664;</button>
+            </div>
+            <div class="panel-content" id="panelContent">
+                <div class="panel-placeholder">
+                    <p>Structured analysis results will appear here when agents complete their work.</p>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Workflow Parameter Modal -->
+    <div class="modal-overlay" id="workflowModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Workflow Parameters</h3>
+                <button class="modal-close" id="modalClose">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- Dynamically populated -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="modalCancel">Cancel</button>
+                <button class="btn-primary" id="modalSubmit">Launch Workflow</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/agents.js"></script>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProteinExplorer - Interactive Protein Analysis</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <div class="logo">
+                <svg viewBox="0 0 40 40" width="40" height="40">
+                    <circle cx="10" cy="10" r="5" fill="#4a90d9"/>
+                    <circle cx="25" cy="8" r="5" fill="#e74c3c"/>
+                    <circle cx="18" cy="22" r="5" fill="#2ecc71"/>
+                    <circle cx="32" cy="20" r="5" fill="#f39c12"/>
+                    <circle cx="12" cy="32" r="5" fill="#9b59b6"/>
+                    <circle cx="28" cy="33" r="5" fill="#1abc9c"/>
+                    <line x1="10" y1="10" x2="25" y2="8" stroke="#555" stroke-width="1.5"/>
+                    <line x1="25" y1="8" x2="32" y2="20" stroke="#555" stroke-width="1.5"/>
+                    <line x1="10" y1="10" x2="18" y2="22" stroke="#555" stroke-width="1.5"/>
+                    <line x1="18" y1="22" x2="32" y2="20" stroke="#555" stroke-width="1.5"/>
+                    <line x1="18" y1="22" x2="12" y2="32" stroke="#555" stroke-width="1.5"/>
+                    <line x1="12" y1="32" x2="28" y2="33" stroke="#555" stroke-width="1.5"/>
+                    <line x1="32" y1="20" x2="28" y2="33" stroke="#555" stroke-width="1.5"/>
+                </svg>
+                <h1>ProteinExplorer</h1>
+            </div>
+            <p class="tagline">Interactive Protein Structure Analysis</p>
+        </div>
+    </header>
+
+    <main>
+        <!-- Sequence Input Panel -->
+        <section class="panel input-panel">
+            <h2>Sequence Input</h2>
+            <div class="input-group">
+                <textarea id="sequence-input" placeholder="Paste protein sequence (single-letter amino acid codes) or FASTA format...&#10;&#10;Example: MVLSPADKTNVKAAWGKVGAHAGEYGAEALERMFLSFPTTKTYFPHFDLSH" rows="5"></textarea>
+                <div class="input-controls">
+                    <button id="analyze-btn" class="btn primary">Analyze Sequence</button>
+                    <button id="clear-btn" class="btn secondary">Clear</button>
+                    <label class="file-upload">
+                        <input type="file" id="fasta-upload" accept=".fasta,.fa,.txt">
+                        Upload FASTA
+                    </label>
+                    <div class="example-proteins">
+                        <span>Load example:</span>
+                        <button class="btn small" data-uniprot="P69905">Hemoglobin &alpha;</button>
+                        <button class="btn small" data-uniprot="P68871">Hemoglobin &beta;</button>
+                        <button class="btn small" data-uniprot="P01308">Insulin</button>
+                    </div>
+                </div>
+            </div>
+            <div id="sequence-display" class="sequence-display hidden"></div>
+        </section>
+
+        <!-- Summary Panel -->
+        <section id="summary-panel" class="panel hidden">
+            <h2>Sequence Properties</h2>
+            <div class="properties-grid">
+                <div class="property">
+                    <span class="property-label">Length</span>
+                    <span id="prop-length" class="property-value">-</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Molecular Weight</span>
+                    <span id="prop-mw" class="property-value">-</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Isoelectric Point (pI)</span>
+                    <span id="prop-pi" class="property-value">-</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Charge at pH 7</span>
+                    <span id="prop-charge" class="property-value">-</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">GRAVY</span>
+                    <span id="prop-gravy" class="property-value">-</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Aromaticity</span>
+                    <span id="prop-aromaticity" class="property-value">-</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Instability Index</span>
+                    <span id="prop-instability" class="property-value">-</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Signal Peptide</span>
+                    <span id="prop-signal" class="property-value">-</span>
+                </div>
+                <div class="property">
+                    <span class="property-label">Disulfide Bonds</span>
+                    <span id="prop-disulfide" class="property-value">-</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Row -->
+        <div class="charts-row">
+            <!-- Hydrophobicity Plot -->
+            <section id="hydrophobicity-panel" class="panel chart-panel hidden">
+                <h2>Hydrophobicity Profile (Kyte-Doolittle)</h2>
+                <div class="chart-container">
+                    <svg id="hydrophobicity-chart" viewBox="0 0 800 300" preserveAspectRatio="xMidYMid meet"></svg>
+                </div>
+            </section>
+
+            <!-- Amino Acid Composition -->
+            <section id="composition-panel" class="panel chart-panel hidden">
+                <h2>Amino Acid Composition</h2>
+                <div class="chart-container">
+                    <svg id="composition-chart" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet"></svg>
+                </div>
+            </section>
+        </div>
+
+        <!-- Secondary Structure -->
+        <section id="ss-panel" class="panel hidden">
+            <h2>Secondary Structure Prediction (Chou-Fasman)</h2>
+            <div class="ss-legend">
+                <span class="ss-legend-item"><span class="ss-helix-color"></span> &alpha;-Helix</span>
+                <span class="ss-legend-item"><span class="ss-sheet-color"></span> &beta;-Sheet</span>
+                <span class="ss-legend-item"><span class="ss-coil-color"></span> Coil</span>
+            </div>
+            <div id="ss-visualization" class="ss-visualization"></div>
+            <div class="ss-summary">
+                <div class="ss-bar-container">
+                    <div id="ss-bar-helix" class="ss-bar helix-bar" title="Helix"></div>
+                    <div id="ss-bar-sheet" class="ss-bar sheet-bar" title="Sheet"></div>
+                    <div id="ss-bar-coil" class="ss-bar coil-bar" title="Coil"></div>
+                </div>
+                <div class="ss-percentages">
+                    <span id="ss-helix-pct" class="helix-text"></span>
+                    <span id="ss-sheet-pct" class="sheet-text"></span>
+                    <span id="ss-coil-pct" class="coil-text"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Alignment Panel -->
+        <section class="panel">
+            <h2>Pairwise Alignment (Needleman-Wunsch)</h2>
+            <div class="alignment-input">
+                <div class="alignment-sequences">
+                    <div>
+                        <label for="align-seq1">Sequence 1</label>
+                        <textarea id="align-seq1" rows="3" placeholder="Enter first sequence..."></textarea>
+                    </div>
+                    <div>
+                        <label for="align-seq2">Sequence 2</label>
+                        <textarea id="align-seq2" rows="3" placeholder="Enter second sequence..."></textarea>
+                    </div>
+                </div>
+                <div class="alignment-controls">
+                    <div class="gap-params">
+                        <label>Gap Open: <input type="number" id="gap-open" value="-10" step="0.5"></label>
+                        <label>Gap Extend: <input type="number" id="gap-extend" value="-0.5" step="0.1"></label>
+                        <label><input type="checkbox" id="optimize-gaps"> Auto-optimize</label>
+                    </div>
+                    <button id="align-btn" class="btn primary">Align</button>
+                </div>
+            </div>
+            <div id="alignment-result" class="alignment-result hidden">
+                <div class="alignment-stats" id="alignment-stats"></div>
+                <div class="alignment-viewer" id="alignment-viewer"></div>
+            </div>
+        </section>
+
+        <!-- 3D Structure Viewer Placeholder -->
+        <section class="panel">
+            <h2>3D Structure Viewer</h2>
+            <div class="structure-viewer-placeholder">
+                <div class="placeholder-content">
+                    <svg viewBox="0 0 120 120" width="120" height="120">
+                        <ellipse cx="60" cy="60" rx="45" ry="45" fill="none" stroke="#4a90d9" stroke-width="2" stroke-dasharray="8 4"/>
+                        <path d="M 30 50 Q 45 20 60 45 Q 75 70 90 40" fill="none" stroke="#e74c3c" stroke-width="3"/>
+                        <path d="M 25 70 Q 40 90 60 65 Q 80 40 95 75" fill="none" stroke="#2ecc71" stroke-width="3"/>
+                        <circle cx="30" cy="50" r="4" fill="#4a90d9"/>
+                        <circle cx="60" cy="45" r="4" fill="#f39c12"/>
+                        <circle cx="90" cy="40" r="4" fill="#e74c3c"/>
+                        <circle cx="25" cy="70" r="4" fill="#2ecc71"/>
+                        <circle cx="60" cy="65" r="4" fill="#9b59b6"/>
+                        <circle cx="95" cy="75" r="4" fill="#1abc9c"/>
+                    </svg>
+                    <p>3D structure visualization can be enabled by integrating <a href="https://molstar.org/" target="_blank" rel="noopener noreferrer">Mol*</a> or <a href="https://nglviewer.org/" target="_blank" rel="noopener noreferrer">NGL Viewer</a>.</p>
+                    <p class="hint">Load a PDB structure or provide a UniProt ID with an experimentally determined structure to visualize in 3D.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>ProteinExplorer v0.1.0 | Biochemical data from established references (BLOSUM62, Kyte-Doolittle, Chou-Fasman)</p>
+    </footer>
+
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <p>Analyzing sequence...</p>
+    </div>
+
+    <script src="/static/protein.js"></script>
+</body>
+</html>

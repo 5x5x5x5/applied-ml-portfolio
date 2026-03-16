@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ModelLab - A/B Testing Platform</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-content">
+            <h1 class="logo">ModelLab</h1>
+            <span class="tagline">A/B Testing Platform for ML Models</span>
+            <div class="header-actions">
+                <button id="refresh-btn" class="btn btn-secondary" onclick="refreshAll()">Refresh</button>
+                <button class="btn btn-primary" onclick="showCreateModal()">+ New Experiment</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Status Bar -->
+        <section class="status-bar">
+            <div class="stat-card">
+                <span class="stat-value" id="total-experiments">0</span>
+                <span class="stat-label">Total Experiments</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value running" id="running-experiments">0</span>
+                <span class="stat-label">Running</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value completed" id="completed-experiments">0</span>
+                <span class="stat-label">Completed</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-value" id="total-events">0</span>
+                <span class="stat-label">Total Events</span>
+            </div>
+        </section>
+
+        <!-- Filter Controls -->
+        <section class="filter-bar">
+            <select id="state-filter" onchange="filterExperiments()">
+                <option value="">All States</option>
+                <option value="draft">Draft</option>
+                <option value="running">Running</option>
+                <option value="paused">Paused</option>
+                <option value="analyzing">Analyzing</option>
+                <option value="completed">Completed</option>
+            </select>
+        </section>
+
+        <!-- Experiments List -->
+        <section class="experiments-section">
+            <h2>Experiments</h2>
+            <div id="experiments-list" class="experiments-grid">
+                <p class="empty-state">No experiments yet. Create one to get started.</p>
+            </div>
+        </section>
+
+        <!-- Experiment Detail Panel -->
+        <section id="experiment-detail" class="detail-panel hidden">
+            <div class="detail-header">
+                <h2 id="detail-name"></h2>
+                <div class="detail-actions" id="detail-actions"></div>
+            </div>
+            <div class="detail-meta" id="detail-meta"></div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="results-section">
+                <h3>Analysis Results</h3>
+                <div class="results-grid">
+                    <div class="result-card" id="frequentist-results">
+                        <h4>Frequentist Analysis</h4>
+                        <div class="result-content"></div>
+                    </div>
+                    <div class="result-card" id="bayesian-results">
+                        <h4>Bayesian Analysis</h4>
+                        <div class="result-content"></div>
+                    </div>
+                </div>
+                <div class="recommendation" id="recommendation"></div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-section">
+                <div class="chart-container">
+                    <h4>Traffic Split</h4>
+                    <canvas id="traffic-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h4>Confidence Intervals</h4>
+                    <canvas id="ci-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h4>Bayesian Posteriors</h4>
+                    <canvas id="posterior-chart"></canvas>
+                </div>
+            </div>
+
+            <!-- Health Section -->
+            <div class="health-section" id="health-section">
+                <h3>Health Status</h3>
+                <div id="health-content"></div>
+            </div>
+        </section>
+
+        <!-- Power Analysis Tool -->
+        <section class="power-section">
+            <h2>Power Analysis Calculator</h2>
+            <div class="power-form">
+                <div class="form-group">
+                    <label for="pa-baseline">Baseline Rate</label>
+                    <input type="number" id="pa-baseline" value="0.10" step="0.01" min="0" max="1">
+                </div>
+                <div class="form-group">
+                    <label for="pa-mde">Min. Detectable Effect</label>
+                    <input type="number" id="pa-mde" value="0.02" step="0.005" min="0.001">
+                </div>
+                <div class="form-group">
+                    <label for="pa-alpha">Alpha</label>
+                    <input type="number" id="pa-alpha" value="0.05" step="0.01" min="0.01" max="0.2">
+                </div>
+                <div class="form-group">
+                    <label for="pa-power">Power</label>
+                    <input type="number" id="pa-power" value="0.80" step="0.05" min="0.5" max="0.99">
+                </div>
+                <button class="btn btn-primary" onclick="runPowerAnalysis()">Calculate</button>
+            </div>
+            <div id="power-result" class="power-result hidden"></div>
+        </section>
+    </main>
+
+    <!-- Create Experiment Modal -->
+    <div id="create-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Experiment</h2>
+                <button class="close-btn" onclick="hideCreateModal()">&times;</button>
+            </div>
+            <form id="create-form" onsubmit="createExperiment(event)">
+                <div class="form-group">
+                    <label for="exp-name">Experiment Name *</label>
+                    <input type="text" id="exp-name" required placeholder="e.g., New Recommendation Model v2">
+                </div>
+                <div class="form-group">
+                    <label for="exp-hypothesis">Hypothesis</label>
+                    <textarea id="exp-hypothesis" rows="2" placeholder="e.g., Model v2 will increase click-through rate by 5%"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="exp-description">Description</label>
+                    <textarea id="exp-description" rows="2" placeholder="Additional context about the experiment"></textarea>
+                </div>
+
+                <h3>Variants</h3>
+                <div class="variant-row">
+                    <div class="form-group">
+                        <label>Control Name</label>
+                        <input type="text" id="control-name" value="Control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Traffic %</label>
+                        <input type="number" id="control-pct" value="50" min="1" max="99" required>
+                    </div>
+                </div>
+                <div class="variant-row">
+                    <div class="form-group">
+                        <label>Treatment Name</label>
+                        <input type="text" id="treatment-name" value="Treatment" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Traffic %</label>
+                        <input type="number" id="treatment-pct" value="50" min="1" max="99" required>
+                    </div>
+                </div>
+
+                <h3>Success Metric</h3>
+                <div class="form-group">
+                    <label for="metric-name">Metric Name</label>
+                    <input type="text" id="metric-name" value="conversion_rate" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="metric-type">Type</label>
+                        <select id="metric-type">
+                            <option value="conversion">Conversion</option>
+                            <option value="continuous">Continuous</option>
+                            <option value="revenue">Revenue</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="metric-mde">MDE</label>
+                        <input type="number" id="metric-mde" value="0.02" step="0.005" min="0.001">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="traffic-alloc">Traffic Allocation</label>
+                    <select id="traffic-alloc">
+                        <option value="random">Random (Consistent Hashing)</option>
+                        <option value="stratified">Stratified</option>
+                        <option value="multi_armed_bandit">Multi-Armed Bandit</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="exp-owner">Owner</label>
+                    <input type="text" id="exp-owner" placeholder="team-name or email">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="hideCreateModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Experiment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        <p>ModelLab v1.0.0 &mdash; Production A/B Testing for ML Models</p>
+    </footer>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
