@@ -769,6 +769,8 @@ img {
   background: radial-gradient(circle at 50% 0%, #ffffff05, transparent 70%);
   opacity: 0;
   transition: opacity 0.4s;
+  /* Decorative only — must not intercept clicks on the card/link beneath it. */
+  pointer-events: none;
 }
 
 .project-card-inner:hover {
