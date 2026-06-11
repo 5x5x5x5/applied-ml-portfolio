@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      CloudGenomics — Genomic Variant Classification Service | Danny
+    </title>
+    <meta
+      name="description"
+      content="Genomic Variant Classification Service. CloudGenomics, project 02 of the applied AI/ML portfolio."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="project.css" />
+    <style>
+      :root {
+        --accent: var(--cyan);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="back-link" href="../index.html#projects"
+          ><svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+          Portfolio</a
+        >
+        <span class="topbar-id">PROJECT 02 / 21</span>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <header class="brief-header">
+        <div class="eyebrow">Project 02 · Cloud AI/ML</div>
+        <div class="brief-headline">
+          <div class="brief-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--accent)"
+              stroke-width="1.5"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M12 2a7 7 0 0 1 7 7c0 3-2 5.5-4 7.5S12 22 12 22s-1-3-3-5.5S5 12 5 9a7 7 0 0 1 7-7z"
+              />
+            </svg>
+          </div>
+          <div>
+            <span class="badge">DE 1</span>
+            <h1 class="brief-title">CloudGenomics</h1>
+            <p class="brief-subtitle">Genomic Variant Classification Service</p>
+          </div>
+        </div>
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <div class="meta-label">Domain</div>
+            <div class="meta-value">Cloud AI/ML</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-label">Track</div>
+            <div class="meta-value">DE 1</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-label">Source</div>
+            <div class="meta-value">
+              <a
+                href="https://github.com/5x5x5x5/applied-ml-portfolio/tree/main/02-cloud-genomics"
+                >View on GitHub ↗</a
+              >
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="brief">
+        <div class="section-eyebrow"><span class="num">01</span> Abstract</div>
+        <h2>Genomic Variant Classification Service</h2>
+        <p class="abstract">
+          A HIPAA-aware ML service that classifies genetic variants (SNPs,
+          indels) along the <strong>ACMG/AMP</strong> five-tier spectrum from
+          benign to pathogenic, using population frequency, conservation, and
+          in-silico functional scores.
+        </p>
+      </section>
+
+      <section class="brief">
+        <div class="section-eyebrow">
+          <span class="num">02</span> Highlights
+        </div>
+        <h2>Methods &amp; contributions</h2>
+        <ul class="highlights">
+          <li>
+            <strong>ACMG/AMP evidence framework</strong> — predictions are
+            explained with the standard criteria codes (BA1/BS1 for common
+            variants, PM2 for rarity, PVS1 for loss-of-function, PP3/BP4 for
+            in-silico concordance).
+          </li>
+          <li>
+            <strong>Calibrated in-silico thresholds</strong> — SIFT < 0.05,
+            PolyPhen-2 > 0.85, CADD > 25, REVEL > 0.7, matching published
+            damaging cut-offs.
+          </li>
+          <li>
+            <strong>VCF processing</strong> — parses standard VCF, derives
+            conservation composites (PhyloP, GERP), and flags frameshift vs
+            in-frame indels.
+          </li>
+          <li>
+            <strong>Compliance posture</strong> — VPC endpoints, KMS encryption,
+            WAF, and Step Functions orchestration.
+          </li>
+        </ul>
+      </section>
+
+      <section class="brief">
+        <div class="section-eyebrow">
+          <span class="num">03</span> Architecture
+        </div>
+        <h2>Data flow</h2>
+        <pre class="arch">
+VCF → variant parser → feature vector (AF · conservation · in-silico)
+     → RandomForest classifier → ACMG tier + evidence codes</pre
+        >
+      </section>
+
+      <section class="brief">
+        <div class="section-eyebrow"><span class="num">04</span> Stack</div>
+        <h2>Technologies</h2>
+        <div class="tags">
+          <span class="tag">Python</span>
+          <span class="tag">RandomForest</span>
+          <span class="tag">BioPython</span>
+          <span class="tag">VCF</span>
+          <span class="tag">Step Functions</span>
+          <span class="tag">CloudFormation</span>
+          <span class="tag">KMS</span>
+          <span class="tag">DataDog</span>
+        </div>
+      </section>
+
+      <footer class="brief-footer">
+        <div class="cta-row">
+          <a
+            class="cta cta-primary"
+            href="https://github.com/5x5x5x5/applied-ml-portfolio/tree/main/02-cloud-genomics"
+            ><svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 1.5a10.5 10.5 0 0 0-3.32 20.46c.52.1.71-.23.71-.5v-1.75c-2.92.64-3.54-1.25-3.54-1.25-.48-1.21-1.16-1.53-1.16-1.53-.95-.65.07-.64.07-.64 1.05.07 1.6 1.08 1.6 1.08.94 1.6 2.46 1.14 3.06.87.1-.68.37-1.14.66-1.4-2.33-.27-4.78-1.17-4.78-5.2 0-1.15.41-2.09 1.08-2.83-.11-.27-.47-1.34.1-2.79 0 0 .88-.28 2.88 1.08a9.96 9.96 0 0 1 5.24 0c2-1.36 2.88-1.08 2.88-1.08.57 1.45.21 2.52.1 2.79.67.74 1.08 1.68 1.08 2.83 0 4.04-2.46 4.93-4.8 5.19.38.33.71.97.71 1.96v2.9c0 .28.19.61.72.5A10.5 10.5 0 0 0 12 1.5z"
+              />
+            </svg>
+            Source code</a
+          >
+          <a class="cta cta-ghost" href="../index.html#projects"
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            All projects</a
+          >
+        </div>
+        <div class="colophon">
+          Applied AI/ML Portfolio · Project 02 of 21 · CloudGenomics
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      ClinicalTrialEDA — Trial Analytics & Biomarker Discovery | Danny
+    </title>
+    <meta
+      name="description"
+      content="Trial Analytics & Biomarker Discovery. ClinicalTrialEDA, project 21 of the applied AI/ML portfolio."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="project.css" />
+    <style>
+      :root {
+        --accent: var(--teal);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="back-link" href="../index.html#projects"
+          ><svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+          Portfolio</a
+        >
+        <span class="topbar-id">PROJECT 21 / 21</span>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <header class="brief-header">
+        <div class="eyebrow">Project 21 · Biostatistics</div>
+        <div class="brief-headline">
+          <div class="brief-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--accent)"
+              stroke-width="1.5"
+            >
+              <path d="M3 3v18h18" />
+              <rect x="6" y="11" width="3" height="7" />
+              <rect x="11" y="7" width="3" height="11" />
+              <rect x="16" y="13" width="3" height="5" />
+            </svg>
+          </div>
+          <div>
+            <span class="badge">PHARMA</span>
+            <h1 class="brief-title">ClinicalTrialEDA</h1>
+            <p class="brief-subtitle">Trial Analytics & Biomarker Discovery</p>
+          </div>
+        </div>
+        <div class="meta-grid">
+          <div class="meta-cell">
+            <div class="meta-label">Domain</div>
+            <div class="meta-value">Biostatistics</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-label">Track</div>
+            <div class="meta-value">PHARMA</div>
+          </div>
+          <div class="meta-cell">
+            <div class="meta-label">Source</div>
+            <div class="meta-value">
+              <a
+                href="https://github.com/5x5x5x5/applied-ml-portfolio/tree/main/21-clinical-trial-eda"
+                >View on GitHub ↗</a
+              >
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="brief">
+        <div class="section-eyebrow"><span class="num">01</span> Abstract</div>
+        <h2>Trial Analytics & Biomarker Discovery</h2>
+        <p class="abstract">
+          A notebook-driven exploratory analysis of a synthetic
+          <strong>Phase III</strong> anti-inflammatory trial (RX-7281 vs
+          placebo), demonstrating the biostatistics workflow behind a trial
+          readout.
+        </p>
+      </section>
+
+      <section class="brief">
+        <div class="section-eyebrow">
+          <span class="num">02</span> Highlights
+        </div>
+        <h2>Methods &amp; contributions</h2>
+        <ul class="highlights">
+          <li>
+            <strong>Inflammatory biomarker panel</strong> — CRP (mg/L), IL-6
+            (pg/mL), TNF-α (pg/mL), and ESR (mm/hr) with correct units
+            throughout.
+          </li>
+          <li>
+            <strong>Hypothesis testing</strong> — chi-squared, Mann–Whitney U,
+            response-rate comparison, and a baseline-balance "Table 1".
+          </li>
+          <li>
+            <strong>Biomarker discovery</strong> — scikit-learn predictors with
+            SHAP attribution and survival curves via lifelines.
+          </li>
+          <li>
+            <strong>Reproducible data</strong> — a seeded synthetic generator
+            (1,200 patients) keeps the whole narrative deterministic.
+          </li>
+        </ul>
+      </section>
+
+      <section class="brief">
+        <div class="section-eyebrow">
+          <span class="num">03</span> Architecture
+        </div>
+        <h2>Data flow</h2>
+        <pre class="arch">
+synthetic generator → EDA → statistical testing
+                    → biomarker discovery (SHAP · survival)</pre
+        >
+      </section>
+
+      <section class="brief">
+        <div class="section-eyebrow"><span class="num">04</span> Notebooks</div>
+        <h2>Rendered Jupyter notebooks</h2>
+        <p class="abstract" style="margin-bottom: 1.4rem">
+          The analysis narrative is captured in Jupyter notebooks, rendered to
+          HTML for direct viewing.
+        </p>
+        <div class="nb-list">
+          <a
+            class="nb-item live"
+            href="notebooks/01_data_generation.html"
+            target="_blank"
+            rel="noopener"
+          >
+            <span class="nb-meta"
+              ><span class="nb-icon"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                >
+                  <rect x="4" y="3" width="16" height="18" rx="2" />
+                  <path d="M8 3v18" />
+                  <path d="M11 8h6M11 12h6M11 16h3" /></svg></span
+              ><span
+                ><span class="nb-name">01 · Data Generation</span
+                ><span class="nb-desc"
+                  >Synthetic RX-7281 Phase III dataset pipeline</span
+                ></span
+              ></span
+            >
+            <span class="nb-status"
+              >View notebook
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" /></svg
+            ></span>
+          </a>
+          <a
+            class="nb-item live"
+            href="notebooks/02_exploratory_analysis.html"
+            target="_blank"
+            rel="noopener"
+          >
+            <span class="nb-meta"
+              ><span class="nb-icon"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                >
+                  <rect x="4" y="3" width="16" height="18" rx="2" />
+                  <path d="M8 3v18" />
+                  <path d="M11 8h6M11 12h6M11 16h3" /></svg></span
+              ><span
+                ><span class="nb-name">02 · Exploratory Analysis</span
+                ><span class="nb-desc"
+                  >Demographics, biomarker distributions, correlations</span
+                ></span
+              ></span
+            >
+            <span class="nb-status"
+              >View notebook
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" /></svg
+            ></span>
+          </a>
+          <div class="nb-item stub">
+            <span class="nb-meta"
+              ><span class="nb-icon"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                >
+                  <rect x="4" y="3" width="16" height="18" rx="2" />
+                  <path d="M8 3v18" />
+                  <path d="M11 8h6M11 12h6M11 16h3" /></svg></span
+              ><span
+                ><span class="nb-name">03 · Statistical Testing</span
+                ><span class="nb-desc"
+                  >Chi-squared, Mann–Whitney, response rates</span
+                ></span
+              ></span
+            >
+            <span class="nb-status muted">In progress</span>
+          </div>
+          <div class="nb-item stub">
+            <span class="nb-meta"
+              ><span class="nb-icon"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                >
+                  <rect x="4" y="3" width="16" height="18" rx="2" />
+                  <path d="M8 3v18" />
+                  <path d="M11 8h6M11 12h6M11 16h3" /></svg></span
+              ><span
+                ><span class="nb-name">04 · Biomarker Discovery</span
+                ><span class="nb-desc"
+                  >Predictive biomarkers with SHAP + survival</span
+                ></span
+              ></span
+            >
+            <span class="nb-status muted">In progress</span>
+          </div>
+        </div>
+      </section>
+      <section class="brief">
+        <div class="section-eyebrow"><span class="num">05</span> Stack</div>
+        <h2>Technologies</h2>
+        <div class="tags">
+          <span class="tag">Jupyter</span>
+          <span class="tag">Biostatistics</span>
+          <span class="tag">SciPy</span>
+          <span class="tag">SHAP</span>
+          <span class="tag">lifelines</span>
+          <span class="tag">seaborn</span>
+        </div>
+      </section>
+
+      <footer class="brief-footer">
+        <div class="cta-row">
+          <a
+            class="cta cta-primary"
+            href="https://github.com/5x5x5x5/applied-ml-portfolio/tree/main/21-clinical-trial-eda"
+            ><svg viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 1.5a10.5 10.5 0 0 0-3.32 20.46c.52.1.71-.23.71-.5v-1.75c-2.92.64-3.54-1.25-3.54-1.25-.48-1.21-1.16-1.53-1.16-1.53-.95-.65.07-.64.07-.64 1.05.07 1.6 1.08 1.6 1.08.94 1.6 2.46 1.14 3.06.87.1-.68.37-1.14.66-1.4-2.33-.27-4.78-1.17-4.78-5.2 0-1.15.41-2.09 1.08-2.83-.11-.27-.47-1.34.1-2.79 0 0 .88-.28 2.88 1.08a9.96 9.96 0 0 1 5.24 0c2-1.36 2.88-1.08 2.88-1.08.57 1.45.21 2.52.1 2.79.67.74 1.08 1.68 1.08 2.83 0 4.04-2.46 4.93-4.8 5.19.38.33.71.97.71 1.96v2.9c0 .28.19.61.72.5A10.5 10.5 0 0 0 12 1.5z"
+              />
+            </svg>
+            Source code</a
+          >
+          <a class="cta cta-ghost" href="../index.html#projects"
+            ><svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            All projects</a
+          >
+        </div>
+        <div class="colophon">
+          Applied AI/ML Portfolio · Project 21 of 21 · ClinicalTrialEDA
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>
