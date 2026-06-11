@@ -484,11 +484,11 @@ class VariantAnnotator:
         if vtype == VariantType.SNV:
             return "missense"  # conservative default for SNVs
         if vtype == VariantType.INSERTION:
-            if len(variant.alt[0]) - len(variant.ref) % 3 != 0:
+            if (len(variant.alt[0]) - len(variant.ref)) % 3 != 0:
                 return "frameshift"
             return "inframe_insertion"
         if vtype == VariantType.DELETION:
-            if len(variant.ref) - len(variant.alt[0]) % 3 != 0:
+            if (len(variant.ref) - len(variant.alt[0])) % 3 != 0:
                 return "frameshift"
             return "inframe_deletion"
 

@@ -1,10 +1,19 @@
 """Image preprocessing for microscopy cell images.
 
-Implements standard histopathology preprocessing methods:
-    - Macenko stain normalization for H&E stained slides
+Implements standard preprocessing methods for stained cell imagery:
+    - Macenko-style two-stain normalization (applied here to Romanowsky /
+      Wright-Giemsa stained peripheral blood smears)
     - Otsu thresholding for cell segmentation
     - Background removal
     - Patch extraction from whole slide images (WSI)
+
+Note:
+    Peripheral blood smears are stained with Romanowsky stains (Wright or
+    Wright-Giemsa), not H&E (which is used for tissue sections). The Macenko
+    method was introduced for H&E but its two-stain optical-density
+    decomposition generalizes to any two-chromophore system — here the
+    azure B (nuclei, blue-purple) and eosin Y (cytoplasm/hemoglobin, pink)
+    components of a Romanowsky stain.
 
 References:
     Macenko et al., "A method for normalizing histology slides for
@@ -23,33 +32,37 @@ logger = logging.getLogger(__name__)
 
 
 class MacenkoNormalizer:
-    """Stain normalization using the Macenko method for H&E images.
+    """Two-stain normalization using the Macenko method.
 
-    H&E (Hematoxylin and Eosin) staining is the most common stain in
-    histopathology. Hematoxylin stains nuclei blue/purple; Eosin stains
-    cytoplasm and extracellular matrix pink. Stain intensity varies
-    significantly between labs, scanners, and slide preparation batches.
+    For peripheral blood smears the two chromophores are azure B (binds
+    nuclei/DNA, blue-purple) and eosin Y (binds cytoplasm and hemoglobin,
+    pink-red) from a Romanowsky (Wright / Wright-Giemsa) stain. Stain
+    intensity varies significantly between labs, scanners, and slide
+    preparation batches.
 
     The Macenko method decomposes the image into stain vectors in optical
     density (OD) space and normalizes them to a reference standard, making
-    models robust to stain variation.
+    models robust to stain variation. For best results, fit the normalizer
+    to a representative Romanowsky-stained reference image rather than
+    relying on the built-in defaults.
 
     Args:
         reference_image: Optional reference image to fit the target stain
-            vectors. If None, uses default H&E reference vectors.
+            vectors. If None, uses the default reference vectors.
         luminosity_threshold: Minimum OD value to distinguish tissue from
             background in optical density space.
         percentile: Percentile for robust estimation of stain vectors
             (avoids outlier influence).
     """
 
-    # Default H&E reference stain vectors (OD space)
-    # These represent typical hematoxylin and eosin stain directions
+    # Default two-stain reference vectors (OD space), one column per stain.
+    # These are the classic Macenko H&E directions used as a generic fallback;
+    # for blood smears, fit to a Romanowsky reference image for best accuracy.
     DEFAULT_HE_REF = np.array(
         [
-            [0.5626, 0.2159],  # Hematoxylin (R, G, B in OD)
-            [0.7201, 0.8012],
-            [0.4062, 0.5581],
+            [0.5626, 0.2159],  # stain 1 (nuclear) / stain 2 (cytoplasmic), R in OD
+            [0.7201, 0.8012],  # G in OD
+            [0.4062, 0.5581],  # B in OD
         ]
     )
 
@@ -71,7 +84,7 @@ class MacenkoNormalizer:
         else:
             self.he_ref = self.DEFAULT_HE_REF.copy()
             self.max_conc_ref = self.DEFAULT_MAX_CONC.copy()
-            logger.info("Using default H&E reference stain vectors")
+            logger.info("Using default two-stain reference vectors")
 
     def _rgb_to_od(self, image: np.ndarray) -> np.ndarray:
         """Convert RGB image to Optical Density (OD) space.
@@ -102,7 +115,7 @@ class MacenkoNormalizer:
         return np.clip(rgb, 0, 255).astype(np.uint8)
 
     def _extract_stain_vectors(self, image: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Extract H&E stain vectors using SVD decomposition.
+        """Extract the two stain vectors using SVD decomposition.
 
         The Macenko method:
         1. Convert to OD space
@@ -150,7 +163,7 @@ class MacenkoNormalizer:
         v1 = np.array([np.cos(min_angle), np.sin(min_angle)]) @ plane
         v2 = np.array([np.cos(max_angle), np.sin(max_angle)]) @ plane
 
-        # Ensure hematoxylin is first (it absorbs more in the blue channel)
+        # Ensure the nuclear stain is first (it absorbs more in the blue channel)
         if v1[0] > v2[0]:
             he_vectors = np.array([v1, v2]).T
         else:
@@ -166,7 +179,7 @@ class MacenkoNormalizer:
         return he_vectors, max_conc
 
     def normalize(self, image: np.ndarray) -> np.ndarray:
-        """Normalize the stain appearance of an H&E image.
+        """Normalize the stain appearance of a stained smear image.
 
         Maps the image's stain vectors and concentrations to the reference,
         producing consistent coloring regardless of the original staining.
@@ -536,7 +549,7 @@ def preprocess_image(
 
     Steps:
     1. Load image
-    2. Optionally normalize H&E stain (Macenko)
+    2. Optionally normalize stain appearance (Macenko)
     3. Optionally remove background
     4. Resize to target dimensions
 

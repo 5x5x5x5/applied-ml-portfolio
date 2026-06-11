@@ -4,7 +4,7 @@ A deep learning pipeline for classifying cell types from microscopy images of bl
 
 ## Cell Types
 
-CellVision classifies 7 cell types from H&E-stained peripheral blood smear images:
+CellVision classifies 7 cell types from Romanowsky (Wright-Giemsa) stained peripheral blood smear images:
 
 | Cell Type | Description |
 |-----------|-------------|
@@ -107,7 +107,7 @@ docker run -p 8501:8501 cellvision streamlit run app.py --server.port 8501 --ser
 
 ## Preprocessing
 
-- **Macenko stain normalization**: Decomposes H&E images into stain vectors using SVD, normalizes to a reference standard
+- **Macenko stain normalization**: Decomposes the two-stain image into stain vectors using SVD, normalizes to a reference standard. The Macenko method originated for H&E but its two-stain optical-density decomposition is applied here to the azure B / eosin Y components of Romanowsky-stained smears
 - **Otsu thresholding**: Automatic cell segmentation by finding optimal foreground/background threshold
 - **Patch extraction**: Extract tissue patches from whole slide images (WSI) with tissue fraction filtering
 

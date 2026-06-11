@@ -111,7 +111,7 @@ def get_train_transforms(image_size: int = 224) -> transforms.Compose:
             transforms.ColorJitter(
                 brightness=0.2,
                 contrast=0.2,
-                saturation=0.3,  # Higher for H&E stain variation
+                saturation=0.3,  # Higher for Romanowsky stain variation
                 hue=0.05,
             ),
             ElasticDeformation(alpha=50.0, sigma=5.0, p=0.3),

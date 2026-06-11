@@ -72,7 +72,7 @@ class BaseAgent(ABC):
 
     MAX_RETRIES: int = 3
     MAX_TOOL_ROUNDS: int = 10
-    MODEL: str = "claude-sonnet-4-20250514"
+    MODEL: str = "claude-sonnet-4-6"
 
     def __init__(self, client: anthropic.Anthropic | None = None) -> None:
         self._client = client or anthropic.Anthropic()

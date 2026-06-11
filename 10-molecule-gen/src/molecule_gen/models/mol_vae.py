@@ -385,7 +385,11 @@ def vae_loss(
     # KL divergence: D_KL(q(z|x) || p(z)) where p(z) = N(0, I)
     # Closed-form solution for Gaussian distributions:
     # KL = -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
-    kl_loss = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+    # Sum over the latent dimension (the full per-sample KL), then average
+    # over the batch. Averaging over latent dims instead would shrink the KL
+    # term by a factor of latent_dim and make beta effectively too small.
+    kl_per_sample = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=1)
+    kl_loss = kl_per_sample.mean()
 
     total_loss = recon_loss + beta * kl_loss
 

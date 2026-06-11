@@ -1611,7 +1611,6 @@ _add(
     potassium=212,
     magnesium=21,
     zinc=1.5,
-    manganese=2.9,
     sub_group="liquid_sweetener",
 )
 _add(

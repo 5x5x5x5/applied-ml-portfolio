@@ -1,7 +1,7 @@
 """CellVision - Microscopy Image Cell Type Classifier.
 
 A deep learning pipeline for classifying cell types from microscopy images,
-with support for H&E stained blood smear analysis.
+with support for Romanowsky (Wright-Giemsa) stained blood smear analysis.
 
 Cell types supported:
     - Red Blood Cells (Erythrocytes)

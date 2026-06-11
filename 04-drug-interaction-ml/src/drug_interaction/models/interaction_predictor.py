@@ -383,7 +383,9 @@ class DrugInteractionPredictor:
         predictions: list[InteractionPrediction] = []
         for i in range(len(X)):
             max_prob = float(np.max(sev_proba[i]))
-            severity = SeverityLevel(self._severity_classes[int(sev_pred[i])])
+            # XGBoost returns the original class labels (not positional indices),
+            # so map straight to the enum — mirroring interaction_type below.
+            severity = SeverityLevel(sev_pred[i])
             interaction_type = InteractionType(type_pred[i])
             # Confidence: max probability minus entropy-based uncertainty
             entropy = -float(np.sum(sev_proba[i] * np.log(sev_proba[i] + 1e-10)))
