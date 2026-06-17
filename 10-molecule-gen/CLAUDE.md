@@ -1,6 +1,6 @@
 ## MoleculeGen
 - Python project using `uv` for package management
-- Linting: ruff. Type checking: mypy. Formatting: ruff format
+- Linting: ruff. Formatting: ruff format
 - Tests: pytest in tests/ directory
 - Run tests: `uv run pytest tests/`
 - Run app: `uv run uvicorn molecule_gen.api.main:app --reload`

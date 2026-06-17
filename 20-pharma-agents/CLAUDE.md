@@ -42,7 +42,7 @@ uv run pytest tests/ -v
 
 - Python 3.11+, type hints on all public functions
 - Logging via structlog (no print statements)
-- Linting: ruff. Formatting: ruff format. Type checking: mypy
+- Linting: ruff. Formatting: ruff format
 - Tests in tests/ using pytest with pytest-asyncio
 - uv for dependency management
 - Default branch: main

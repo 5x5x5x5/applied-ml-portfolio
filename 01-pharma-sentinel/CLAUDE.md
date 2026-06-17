@@ -1,6 +1,6 @@
 ## PharmaSentinel
 - Python project using `uv` for package management
-- Linting: ruff. Type checking: mypy (strict). Formatting: ruff format
+- Linting: ruff. Formatting: ruff format
 - Tests: pytest in tests/ directory (async with pytest-asyncio)
 - Run tests: `uv run pytest tests/`
 - Run app: `uv run uvicorn pharma_sentinel.api.main:app --reload`
